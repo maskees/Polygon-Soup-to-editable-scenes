@@ -1,0 +1,21 @@
+# Low VRAM Configuration (6GB GPUs)
+# ====================================
+# Overrides for constrained GPU environments.
+# Use with: python main.py --low-vram  OR  --config configs/low_vram.yaml
+
+# Reduced point sampling
+n_sample_points: 50000
+
+# Fewer render views for feature extraction
+n_render_views: 8
+render_resolution: 224
+
+# Lower mesh complexity
+target_face_count: 30000
+
+# GPU Settings
+use_float16: true
+max_batch_size: 2
+
+# Enable fallback segmentation
+use_rembg_fallback: true

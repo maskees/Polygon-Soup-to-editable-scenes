@@ -1,0 +1,57 @@
+[project]
+name = "polygon-soup-to-editable-scenes"
+version = "0.1.0"
+description = "Dual-Input Pipeline for Compositional 3D Asset Reconstruction"
+authors = [
+    { name = "Student A", email = "student.a@nmims.edu" },
+    { name = "Student B", email = "student.b@nmims.edu" },
+]
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+
+dependencies = [
+    "torch>=2.3.0",
+    "torchvision>=0.18.0",
+    "trimesh[all]>=4.4.0",
+    "open3d>=0.18.0",
+    "opencv-python>=4.10.0",
+    "Pillow>=10.4.0",
+    "rembg>=2.0.50",
+    "usd-core>=24.8",
+    "numpy>=1.26.0,<2.0",
+    "scipy>=1.13.0",
+    "matplotlib>=3.9.0",
+    "tqdm>=4.66.0",
+    "click>=8.1.0",
+    "rich>=13.7.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2.0",
+    "black>=24.4.0",
+    "ruff>=0.5.0",
+]
+eval = [
+    "pytorch3d",
+]
+
+[project.scripts]
+pipeline = "main:main"
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]

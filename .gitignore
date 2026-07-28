@@ -1,0 +1,42 @@
+# Dependencies & build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.venv/
+env/
+venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Project-specific: large files NOT tracked in git
+external/
+checkpoints/
+data/intermediate/
+data/output/
+*.obj
+*.glb
+*.usda
+*.usdc
+*.usdz
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs
+*.log
+wandb/

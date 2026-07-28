@@ -1,0 +1,39 @@
+# Default Pipeline Configuration
+# ================================
+# Target GPU: NVIDIA RTX 4060 (8GB VRAM)
+# For constrained setups, see low_vram.yaml
+
+# Image Ingestion
+target_image_size: 512
+
+# Segmentation (SAM 2)
+sam2_checkpoint: "checkpoints/sam2/sam2_hiera_large.pt"
+sam2_model_cfg: "sam2_hiera_l.yaml"
+use_rembg_fallback: false
+mask_morph_kernel_size: 5
+cross_view_iou_threshold: 0.7
+
+# 3D Reconstruction
+crm_checkpoint_dir: "checkpoints/crm"
+unique3d_checkpoint_dir: "checkpoints/unique3d"
+target_face_count: 50000
+mesh_smoothing_iterations: 3
+
+# Semantic Partitioning (SAMPart3D)
+sampart3d_checkpoint: "checkpoints/sampart3d"
+n_sample_points: 100000
+n_render_views: 12
+render_resolution: 224
+n_target_parts: 8
+min_part_faces: 50
+boundary_smoothing_iterations: 3
+
+# USD Export
+usd_scene_name: "Root_Scene"
+export_y_up: true
+export_z_up: true
+
+# GPU Settings
+device: "cuda"
+use_float16: false
+max_batch_size: 8
