@@ -41,6 +41,10 @@ class PipelineConfig:
     unique3d_checkpoint_dir: str = "checkpoints/unique3d"
     target_face_count: int = 50000
     mesh_smoothing_iterations: int = 3
+    crm_conda_env: str = "crm"
+    unique3d_conda_env: str = "unique3d"
+    reconstruction_timeout: int = 300
+    use_pymeshlab_postprocess: bool = True
 
     # Partitioning (SAMPart3D)
     sampart3d_checkpoint: str = "checkpoints/sampart3d"

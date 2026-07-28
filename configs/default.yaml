@@ -18,6 +18,10 @@ crm_checkpoint_dir: "checkpoints/crm"
 unique3d_checkpoint_dir: "checkpoints/unique3d"
 target_face_count: 50000
 mesh_smoothing_iterations: 3
+crm_conda_env: "crm"
+unique3d_conda_env: "unique3d"
+reconstruction_timeout: 300
+use_pymeshlab_postprocess: true
 
 # Semantic Partitioning (SAMPart3D)
 sampart3d_checkpoint: "checkpoints/sampart3d"
