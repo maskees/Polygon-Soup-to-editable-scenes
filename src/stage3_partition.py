@@ -333,8 +333,6 @@ def cluster_3d_features(
     np.ndarray
         (N,) integer labels for each point.
     """
-    from sklearn.cluster import KMeans
-
     # ---------------------------------------------------------------
     # TODO: Replace with SAMPart3D's native clustering pipeline
     #
@@ -349,8 +347,19 @@ def cluster_3d_features(
 
     logger.info(f"  Clustering {len(points)} points into {n_parts} parts (K-means baseline)")
 
-    kmeans = KMeans(n_clusters=n_parts, random_state=42, n_init=10)
-    labels = kmeans.fit_predict(points)
+    try:
+        from sklearn.cluster import KMeans
+
+        kmeans = KMeans(n_clusters=n_parts, random_state=42, n_init=10)
+        labels = kmeans.fit_predict(points)
+    except ImportError:
+        # Fallback: use scipy's K-means if sklearn is not installed
+        from scipy.cluster.vq import kmeans2, whiten
+
+        logger.warning("  sklearn not installed — using scipy K-means fallback")
+        whitened = whiten(points.astype(np.float64))
+        _, labels = kmeans2(whitened, n_parts, minit="points", seed=42)
+        labels = labels.astype(np.int32)
 
     return labels
 
@@ -548,7 +557,8 @@ def extract_submeshes(
         sub_mesh = mesh.submesh([face_indices], append=True)
 
         # Clean up
-        sub_mesh.remove_degenerate_faces()
+        mask = sub_mesh.nondegenerate_faces()
+        sub_mesh.update_faces(mask)
         sub_mesh.remove_unreferenced_vertices()
         sub_mesh.fix_normals()
 

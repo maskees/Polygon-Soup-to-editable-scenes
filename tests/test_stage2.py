@@ -4,6 +4,7 @@ import json
 import numpy as np
 import pytest
 import trimesh
+from pathlib import Path
 
 from src.stage2_reconstruct import (
     postprocess_mesh,
@@ -12,6 +13,9 @@ from src.stage2_reconstruct import (
     _normalize_bounding_box,
     _decimate_mesh,
     _fill_holes,
+    _run_bridge_subprocess,
+    reconstruct_with_crm,
+    reconstruct_with_unique3d,
 )
 
 
@@ -168,3 +172,113 @@ class TestBuildCondaCommand:
         )
 
         assert "--low-vram" in cmd
+
+
+class TestRunBridgeSubprocess:
+    def test_timeout_raises_runtime_error(self, tmp_path):
+        """Should raise RuntimeError on subprocess timeout."""
+        from unittest.mock import patch
+        import subprocess
+
+        cmd = ["python", "-c", "import time; time.sleep(100)"]
+        expected_output = tmp_path / "nonexistent.obj"
+
+        with patch("src.stage2_reconstruct.subprocess.run") as mock_run:
+            mock_run.side_effect = subprocess.TimeoutExpired(cmd=cmd, timeout=1)
+
+            with pytest.raises(RuntimeError, match="timed out"):
+                _run_bridge_subprocess(cmd, expected_output, timeout=1, backend_name="TestBackend")
+
+    def test_missing_output_raises_runtime_error(self, tmp_path):
+        """Should raise RuntimeError when subprocess succeeds but no output file."""
+        from unittest.mock import patch, MagicMock
+
+        cmd = ["echo", "ok"]
+        expected_output = tmp_path / "should_not_exist.obj"
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = '{"status": "success", "message": "done"}\n'
+        mock_result.stderr = ""
+
+        with patch("src.stage2_reconstruct.subprocess.run", return_value=mock_result):
+            with pytest.raises(RuntimeError, match="output mesh not found"):
+                _run_bridge_subprocess(cmd, expected_output, timeout=300, backend_name="TestBackend")
+
+    def test_nonzero_exit_raises_runtime_error(self, tmp_path):
+        """Should raise RuntimeError when subprocess exits with nonzero code."""
+        from unittest.mock import patch, MagicMock
+
+        cmd = ["python", "-c", "exit(1)"]
+        expected_output = tmp_path / "out.obj"
+
+        mock_result = MagicMock()
+        mock_result.returncode = 1
+        mock_result.stdout = '{"status": "error", "message": "something broke"}\n'
+        mock_result.stderr = "Traceback (most recent call last): ..."
+
+        with patch("src.stage2_reconstruct.subprocess.run", return_value=mock_result):
+            with pytest.raises(RuntimeError, match="exited with code 1"):
+                _run_bridge_subprocess(cmd, expected_output, timeout=300, backend_name="TestBackend")
+
+    def test_conda_not_found_raises_runtime_error(self, tmp_path):
+        """Should raise RuntimeError when conda is not found."""
+        from unittest.mock import patch
+
+        cmd = ["conda", "run", "-n", "test_env", "python", "script.py"]
+        expected_output = tmp_path / "out.obj"
+
+        with patch("src.stage2_reconstruct.subprocess.run") as mock_run:
+            mock_run.side_effect = FileNotFoundError("conda not found")
+
+            with pytest.raises(RuntimeError, match="conda"):
+                _run_bridge_subprocess(cmd, expected_output, timeout=300, backend_name="TestBackend")
+
+
+class TestReconstructWithCrmErrors:
+    def test_missing_bridge_script(self, tmp_path):
+        """Should raise FileNotFoundError when bridge script doesn't exist."""
+        from unittest.mock import patch
+
+        images = [tmp_path / f"{v}.png" for v in ["front", "back", "left", "right"]]
+        for img in images:
+            img.touch()
+
+        # Patch Path.exists to return False for the bridge script
+        original_exists = Path.exists
+
+        def mock_exists(self):
+            if "crm_bridge" in str(self):
+                return False
+            return original_exists(self)
+
+        with patch.object(Path, "exists", mock_exists):
+            with pytest.raises(FileNotFoundError, match="bridge script"):
+                reconstruct_with_crm(
+                    images=images,
+                    checkpoint_dir=tmp_path / "checkpoints",
+                )
+
+
+class TestReconstructWithUnique3dErrors:
+    def test_missing_bridge_script(self, tmp_path):
+        """Should raise FileNotFoundError when bridge script doesn't exist."""
+        from unittest.mock import patch
+
+        images = [tmp_path / f"{v}.png" for v in ["front", "back", "left", "right"]]
+        for img in images:
+            img.touch()
+
+        original_exists = Path.exists
+
+        def mock_exists(self):
+            if "unique3d_bridge" in str(self):
+                return False
+            return original_exists(self)
+
+        with patch.object(Path, "exists", mock_exists):
+            with pytest.raises(FileNotFoundError, match="bridge script"):
+                reconstruct_with_unique3d(
+                    images=images,
+                    checkpoint_dir=tmp_path / "checkpoints",
+                )

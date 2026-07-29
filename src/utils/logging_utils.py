@@ -11,15 +11,20 @@ from rich.console import Console
 from rich.logging import RichHandler
 
 
-def setup_logging(level: int = logging.INFO) -> None:
+def setup_logging(level: int = logging.INFO, verbose: bool = False) -> None:
     """
     Configure the root logger with Rich formatting.
 
     Parameters
     ----------
     level : int
-        Logging level (default: INFO).
+        Logging level (default: INFO). Overridden to DEBUG if verbose=True.
+    verbose : bool
+        If True, set logging level to DEBUG for detailed output.
     """
+    if verbose:
+        level = logging.DEBUG
+
     logging.basicConfig(
         level=level,
         format="%(message)s",
@@ -27,7 +32,7 @@ def setup_logging(level: int = logging.INFO) -> None:
         handlers=[
             RichHandler(
                 console=Console(stderr=True),
-                show_path=False,
+                show_path=verbose,
                 markup=True,
                 rich_tracebacks=True,
             )
