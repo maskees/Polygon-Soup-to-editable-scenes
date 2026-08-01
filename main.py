@@ -171,7 +171,6 @@ def main(
     pipeline_start = time.time()
     stage_timings = {}
     completed_stages = []
-    failed_stage = None
 
     with Progress() as progress:
         task = progress.add_task("[green]Running pipeline...", total=len(stage_list))
@@ -189,7 +188,6 @@ def main(
             except Exception as e:
                 elapsed = time.time() - stage_start
                 stage_timings[idx] = elapsed
-                failed_stage = idx
                 console.print(f"[bold red]  ✗ Stage {idx} failed after {elapsed:.1f}s: {e}[/]")
 
                 if verbose:
@@ -203,7 +201,8 @@ def main(
                         f"\n[yellow]  Completed stages before failure: {completed_stages}[/]"
                     )
                     console.print(
-                        f"  To resume, run with: --stages {','.join(str(s) for s in stage_list if s >= idx)}"
+                        f"  To resume, run with: "
+                        f"--stages {','.join(str(s) for s in stage_list if s >= idx)}"
                     )
 
                 raise

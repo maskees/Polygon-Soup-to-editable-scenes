@@ -19,9 +19,13 @@ Architecture:
 """
 
 import logging
+import typing
 from pathlib import Path
 
 import numpy as np
+
+if typing.TYPE_CHECKING:
+    import trimesh
 
 from src.config import PipelineConfig
 
@@ -360,18 +364,18 @@ def extract_dino_features(
 
     # Preprocessing transform (ImageNet normalization)
     try:
-        import torchvision.transforms as T
+        import torchvision.transforms as transforms
     except ImportError:
         logger.warning("torchvision not available — using random features")
         n_views = len(images)
         return np.random.randn(n_views, 256, 1024).astype(np.float32)
 
-    transform = T.Compose(
+    transform = transforms.Compose(
         [
-            T.ToPILImage(),
-            T.Resize((224, 224)),
-            T.ToTensor(),
-            T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            transforms.ToPILImage(),
+            transforms.Resize((224, 224), interpolation=transforms.InterpolationMode.BICUBIC),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
         ]
     )
 
@@ -629,7 +633,8 @@ def cluster_3d_features(
 
     logger.info(f"  Clustering {len(points)} points into {n_parts} parts ({method})")
     logger.info(
-        f"  Combined feature dim: {combined.shape[1]} (geo={pos_norm.shape[1]}, feat={feat_norm.shape[1]})"
+        f"  Combined feature dim: {combined.shape[1]} "
+        f"(geo={pos_norm.shape[1]}, feat={feat_norm.shape[1]})"
     )
 
     if method == "spectral":
@@ -707,11 +712,11 @@ def _spectral_cluster(
     # Normalized graph Laplacian
     degree = np.array(affinity.sum(axis=1)).flatten()
     degree_inv_sqrt = np.where(degree > 0, 1.0 / np.sqrt(degree), 0.0)
-    D_inv_sqrt = csr_matrix(
+    d_inv_sqrt = csr_matrix(
         (degree_inv_sqrt, (np.arange(n_sub), np.arange(n_sub))),
         shape=(n_sub, n_sub),
     )
-    laplacian = csr_matrix(np.eye(n_sub)) - D_inv_sqrt @ affinity @ D_inv_sqrt
+    laplacian = np.eye(n_sub) - (d_inv_sqrt @ affinity @ d_inv_sqrt)
 
     # Compute bottom eigenvectors (skip the trivial first one)
     n_eigenvectors = min(n_parts + 1, n_sub - 1)

@@ -17,7 +17,11 @@ Architecture:
 import json
 import logging
 import subprocess
+import typing
 from pathlib import Path
+
+if typing.TYPE_CHECKING:
+    import trimesh
 
 from src.config import PipelineConfig
 

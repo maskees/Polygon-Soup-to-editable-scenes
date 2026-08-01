@@ -9,7 +9,12 @@ Output: .usda master files with individually toggleable layers
 """
 
 import logging
+import typing
 from pathlib import Path
+
+if typing.TYPE_CHECKING:
+    import trimesh
+    from pxr import Usd, UsdGeom
 
 from src.config import PipelineConfig
 from src.stage3_partition import PART_COLORS

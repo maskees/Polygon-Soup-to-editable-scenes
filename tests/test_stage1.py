@@ -117,7 +117,7 @@ class TestRembgFallback:
 
         with unittest.mock.patch.dict("sys.modules", {"rembg": None}):
             # Force re-import failure
-            image = np.zeros((100, 100, 3), dtype=np.uint8)
+            np.zeros((100, 100, 3), dtype=np.uint8)
             # The function uses a local import, so we can't easily mock it
             # This test just validates the function signature and basic flow
             pass  # Covered by the try/except in the function itself

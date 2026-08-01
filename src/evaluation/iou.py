@@ -56,12 +56,10 @@ def compute_part_iou(
         return 0.0
 
     # Convert to dense boolean grids aligned to same origin
-    pred_matrix = pred_vox.matrix
-    gt_matrix = gt_vox.matrix
 
     # Align grids to same coordinate space
-    pred_origin = pred_vox.transform[:3, 3]
-    gt_origin = gt_vox.transform[:3, 3]
+    pred_vox.transform[:3, 3]
+    gt_vox.transform[:3, 3]
 
     # For simplicity, compute IoU using point-based occupancy
     pred_points = set(map(tuple, pred_vox.points.round(6)))

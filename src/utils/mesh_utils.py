@@ -4,9 +4,13 @@ Mesh utility functions.
 Common Trimesh operations for loading, validation, and manipulation.
 """
 
+import typing
 from pathlib import Path
 
 import numpy as np
+
+if typing.TYPE_CHECKING:
+    import trimesh
 
 
 def load_mesh(path: Path | str) -> "trimesh.Trimesh":
