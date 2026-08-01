@@ -225,7 +225,6 @@ def render_multiview(
         - images: List of RGB images (resolution, resolution, 3) in uint8.
         - camera_transforms: List of 4×4 camera-to-world transform matrices.
     """
-    import trimesh
 
     # Generate uniform viewpoints on a sphere using Fibonacci spiral
     views = []
@@ -238,11 +237,13 @@ def render_multiview(
 
         # Camera position on unit sphere, scaled to 2.5x mesh extent
         radius = max(mesh.extents) * 2.5
-        cam_pos = np.array([
-            radius * np.sin(theta) * np.cos(phi),
-            radius * np.sin(theta) * np.sin(phi),
-            radius * np.cos(theta),
-        ])
+        cam_pos = np.array(
+            [
+                radius * np.sin(theta) * np.cos(phi),
+                radius * np.sin(theta) * np.sin(phi),
+                radius * np.cos(theta),
+            ]
+        )
 
         # Compute camera transform looking at origin from cam_pos
         camera_transform = _look_at(cam_pos, target=np.zeros(3), up=np.array([0, 1, 0]))
@@ -252,8 +253,9 @@ def render_multiview(
             # Create scene and render
             scene = mesh.scene()
             rendered = scene.save_image(resolution=(resolution, resolution))
-            from PIL import Image
             import io
+
+            from PIL import Image
 
             img = np.array(Image.open(io.BytesIO(rendered)))[:, :, :3]
             views.append(img)
@@ -264,9 +266,7 @@ def render_multiview(
     return views, transforms
 
 
-def _look_at(
-    eye: np.ndarray, target: np.ndarray, up: np.ndarray
-) -> np.ndarray:
+def _look_at(eye: np.ndarray, target: np.ndarray, up: np.ndarray) -> np.ndarray:
     """Compute a 4×4 look-at camera transform matrix."""
     forward = target - eye
     forward = forward / np.linalg.norm(forward)
@@ -288,6 +288,7 @@ def _look_at(
 # ─────────────────────────────────────────────────────────────────
 # DINOv2 Feature Extraction
 # ─────────────────────────────────────────────────────────────────
+
 
 def extract_dino_features(
     images: list[np.ndarray],
@@ -323,15 +324,14 @@ def extract_dino_features(
         Patch features array of shape (N_views, N_patches, feature_dim).
         For ViT-L/14 with 224×224 input: (N_views, 256, 1024).
     """
-    import torch
-
-    # Check device availability
-    if device == "cuda" and not torch.cuda.is_available():
-        logger.warning("CUDA not available — falling back to CPU for DINOv2")
-        device = "cpu"
-
-    # Try loading DINOv2 model
     try:
+        import torch
+
+        # Check device availability
+        if device == "cuda" and not torch.cuda.is_available():
+            logger.warning("CUDA not available — falling back to CPU for DINOv2")
+            device = "cpu"
+
         logger.info(f"  Loading DINOv2 model: {model_name}...")
         model = torch.hub.load(
             "facebookresearch/dinov2",
@@ -366,12 +366,14 @@ def extract_dino_features(
         n_views = len(images)
         return np.random.randn(n_views, 256, 1024).astype(np.float32)
 
-    transform = T.Compose([
-        T.ToPILImage(),
-        T.Resize((224, 224)),
-        T.ToTensor(),
-        T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-    ])
+    transform = T.Compose(
+        [
+            T.ToPILImage(),
+            T.Resize((224, 224)),
+            T.ToTensor(),
+            T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ]
+    )
 
     # Extract features in batches
     all_features = []
@@ -434,6 +436,7 @@ def extract_dino_features(
 # ─────────────────────────────────────────────────────────────────
 # 2D → 3D Feature Projection
 # ─────────────────────────────────────────────────────────────────
+
 
 def project_features_to_points(
     points: np.ndarray,
@@ -511,15 +514,16 @@ def project_features_to_points(
         y_proj = (focal_length * (-points_cam[visible, 1]) / z_vals[visible]) + cy
 
         # Map pixel coordinates to patch indices
-        patch_x = np.clip((x_proj / resolution * patches_per_side).astype(int), 0, patches_per_side - 1)
-        patch_y = np.clip((y_proj / resolution * patches_per_side).astype(int), 0, patches_per_side - 1)
+        patch_x = np.clip(
+            (x_proj / resolution * patches_per_side).astype(int), 0, patches_per_side - 1
+        )
+        patch_y = np.clip(
+            (y_proj / resolution * patches_per_side).astype(int), 0, patches_per_side - 1
+        )
         patch_idx = patch_y * patches_per_side + patch_x
 
         # Filter: only points within image bounds
-        in_bounds = (
-            (x_proj >= 0) & (x_proj < resolution) &
-            (y_proj >= 0) & (y_proj < resolution)
-        )
+        in_bounds = (x_proj >= 0) & (x_proj < resolution) & (y_proj >= 0) & (y_proj < resolution)
 
         # Get the indices of visible & in-bounds points in original array
         visible_indices = np.where(visible)[0]
@@ -552,6 +556,7 @@ def project_features_to_points(
 # ─────────────────────────────────────────────────────────────────
 # Feature-Aware Clustering
 # ─────────────────────────────────────────────────────────────────
+
 
 def cluster_3d_features(
     features: np.ndarray,
@@ -592,7 +597,6 @@ def cluster_3d_features(
         (N,) integer labels for each point.
     """
     # Normalize features and positions to unit variance
-    from scipy.spatial.distance import pdist
 
     # Normalize point positions
     pos_centered = points - points.mean(axis=0)
@@ -608,19 +612,25 @@ def cluster_3d_features(
     # Combine: weighted concatenation of position + features
     # feature_weight controls the balance
     geo_weight = 1.0 - feature_weight
-    combined = np.hstack([
-        pos_norm * geo_weight,
-        feat_norm * feature_weight,
-    ])
+    combined = np.hstack(
+        [
+            pos_norm * geo_weight,
+            feat_norm * feature_weight,
+        ]
+    )
 
     # Check if features are meaningful (not all zeros/random)
     has_real_features = np.std(features) > 1e-4 and np.mean(np.abs(features)) > 1e-4
     if not has_real_features:
-        logger.warning("  Features appear to be placeholder — falling back to geometry-only clustering")
+        logger.warning(
+            "  Features appear to be placeholder — falling back to geometry-only clustering"
+        )
         combined = pos_norm
 
     logger.info(f"  Clustering {len(points)} points into {n_parts} parts ({method})")
-    logger.info(f"  Combined feature dim: {combined.shape[1]} (geo={pos_norm.shape[1]}, feat={feat_norm.shape[1]})")
+    logger.info(
+        f"  Combined feature dim: {combined.shape[1]} (geo={pos_norm.shape[1]}, feat={feat_norm.shape[1]})"
+    )
 
     if method == "spectral":
         labels = _spectral_cluster(combined, n_parts, n_neighbors)
@@ -689,7 +699,7 @@ def _spectral_cluster(
     sigma = np.median(distances) + 1e-8
     rows = np.repeat(np.arange(n_sub), neighbors.shape[1])
     cols = neighbors.flatten()
-    weights = np.exp(-distances.flatten() ** 2 / (2 * sigma ** 2))
+    weights = np.exp(-distances.flatten() ** 2 / (2 * sigma**2))
 
     affinity = csr_matrix((weights, (rows, cols)), shape=(n_sub, n_sub))
     affinity = (affinity + affinity.T) / 2  # Symmetrize
@@ -706,11 +716,11 @@ def _spectral_cluster(
     # Compute bottom eigenvectors (skip the trivial first one)
     n_eigenvectors = min(n_parts + 1, n_sub - 1)
     try:
-        eigenvalues, eigenvectors = eigsh(
-            laplacian, k=n_eigenvectors, which="SM", maxiter=1000
-        )
+        eigenvalues, eigenvectors = eigsh(laplacian, k=n_eigenvectors, which="SM", maxiter=1000)
         # Use eigenvectors 1..n_parts (skip the constant eigenvector)
-        embedding = eigenvectors[:, 1:n_parts + 1] if n_eigenvectors > n_parts else eigenvectors[:, 1:]
+        embedding = (
+            eigenvectors[:, 1 : n_parts + 1] if n_eigenvectors > n_parts else eigenvectors[:, 1:]
+        )
     except Exception as e:
         logger.warning(f"  Eigsh failed ({e}) — falling back to K-means")
         return _kmeans_cluster(features, n_parts)
@@ -747,6 +757,7 @@ def _kmeans_cluster(features: np.ndarray, n_parts: int) -> np.ndarray:
 # ─────────────────────────────────────────────────────────────────
 # Label mapping and post-processing
 # ─────────────────────────────────────────────────────────────────
+
 
 def map_point_labels_to_faces(
     point_labels: np.ndarray,
@@ -940,7 +951,6 @@ def extract_submeshes(
     list[Path]
         Ordered list of paths to saved sub-mesh files.
     """
-    import trimesh
 
     paths = []
     unique_labels = sorted(np.unique(face_labels))

@@ -12,9 +12,9 @@ Usage:
 """
 
 import time
+from pathlib import Path
 
 import click
-from pathlib import Path
 from rich.console import Console
 from rich.progress import Progress
 from rich.table import Table
@@ -24,25 +24,29 @@ console = Console()
 
 @click.command()
 @click.option(
-    "--input", "-i",
+    "--input",
+    "-i",
     type=click.Path(exists=True),
     required=True,
     help="Path to directory containing 4 orthogonal images (front, back, left, right)",
 )
 @click.option(
-    "--output", "-o",
+    "--output",
+    "-o",
     type=click.Path(),
     default="data/output",
     help="Output directory for final USD and intermediate files",
 )
 @click.option(
-    "--stages", "-s",
+    "--stages",
+    "-s",
     type=str,
     default="0,1,2,3,4",
     help="Comma-separated stage indices to run (e.g., '0,1,2')",
 )
 @click.option(
-    "--backend", "-b",
+    "--backend",
+    "-b",
     type=click.Choice(["crm", "unique3d"]),
     default="crm",
     help="3D reconstruction backend",
@@ -60,7 +64,8 @@ console = Console()
     help="Enable low-VRAM mode (6GB GPU)",
 )
 @click.option(
-    "--config", "-c",
+    "--config",
+    "-c",
     type=click.Path(),
     default="configs/default.yaml",
     help="Path to YAML configuration file",
@@ -72,7 +77,8 @@ console = Console()
     help="Skip stages whose outputs already exist",
 )
 @click.option(
-    "--verbose", "-v",
+    "--verbose",
+    "-v",
     is_flag=True,
     default=False,
     help="Enable debug-level logging",
@@ -83,9 +89,12 @@ console = Console()
     default=False,
     help="Validate config and print plan without executing stages",
 )
-def main(input, output, stages, backend, up_axis, low_vram, config, skip_existing, verbose, dry_run):
+def main(
+    input, output, stages, backend, up_axis, low_vram, config, skip_existing, verbose, dry_run
+):
     """Run the full 3D reconstruction and decomposition pipeline."""
     from src.utils.logging_utils import setup_logging
+
     setup_logging(verbose=verbose)
 
     from src.config import load_config
@@ -94,7 +103,7 @@ def main(input, output, stages, backend, up_axis, low_vram, config, skip_existin
     from src.stage2_reconstruct import run_reconstruction
     from src.stage3_partition import run_partition
     from src.stage4_usd import run_usd_export
-    from src.utils.gpu_utils import log_gpu_status, clear_gpu_cache
+    from src.utils.gpu_utils import clear_gpu_cache, log_gpu_status
 
     # Load configuration
     cfg = load_config(config, low_vram=low_vram)
@@ -185,12 +194,17 @@ def main(input, output, stages, backend, up_axis, low_vram, config, skip_existin
 
                 if verbose:
                     import traceback
+
                     console.print(f"[dim]{traceback.format_exc()}[/dim]")
 
                 # Report what was completed before failure
                 if completed_stages:
-                    console.print(f"\n[yellow]  Completed stages before failure: {completed_stages}[/]")
-                    console.print(f"  To resume, run with: --stages {','.join(str(s) for s in stage_list if s >= idx)}")
+                    console.print(
+                        f"\n[yellow]  Completed stages before failure: {completed_stages}[/]"
+                    )
+                    console.print(
+                        f"  To resume, run with: --stages {','.join(str(s) for s in stage_list if s >= idx)}"
+                    )
 
                 raise
 

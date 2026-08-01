@@ -25,9 +25,7 @@ class PipelineConfig:
 
     # Image ingestion
     target_image_size: int = 512
-    required_views: list[str] = field(
-        default_factory=lambda: ["front", "back", "left", "right"]
-    )
+    required_views: list[str] = field(default_factory=lambda: ["front", "back", "left", "right"])
 
     # Segmentation
     sam2_checkpoint: str = "checkpoints/sam2/sam2_hiera_large.pt"

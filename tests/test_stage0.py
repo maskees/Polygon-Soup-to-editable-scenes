@@ -1,6 +1,5 @@
 """Tests for Stage 0 — Image Ingestion."""
 
-import tempfile
 from pathlib import Path
 
 import cv2

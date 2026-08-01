@@ -1,30 +1,37 @@
 """Tests for Stage 2 — 3D Reconstruction."""
 
-import json
+from pathlib import Path
+
 import numpy as np
 import pytest
 import trimesh
-from pathlib import Path
 
 from src.stage2_reconstruct import (
-    postprocess_mesh,
-    validate_mesh,
     _build_conda_command,
-    _normalize_bounding_box,
     _decimate_mesh,
     _fill_holes,
+    _normalize_bounding_box,
     _run_bridge_subprocess,
+    postprocess_mesh,
     reconstruct_with_crm,
     reconstruct_with_unique3d,
+    validate_mesh,
 )
 
 
 class TestPostprocessMesh:
     def test_decimation(self):
         """Mesh should be decimated to target face count."""
+        try:
+            import pymeshlab  # noqa: F401
+        except ImportError:
+            pytest.importorskip("fast_simplification")
+
         mesh = trimesh.creation.icosphere(subdivisions=5)  # ~20K faces
         assert len(mesh.faces) > 5000
-        result = postprocess_mesh(mesh, target_faces=5000, smoothing_iterations=0, use_pymeshlab=False)
+        result = postprocess_mesh(
+            mesh, target_faces=5000, smoothing_iterations=0, use_pymeshlab=False
+        )
         assert len(result.faces) <= 5000
 
     def test_normalization(self):
@@ -32,7 +39,9 @@ class TestPostprocessMesh:
         mesh = trimesh.creation.box(extents=(10, 20, 30))
         mesh.vertices += [100, 200, 300]  # Offset from origin
 
-        result = postprocess_mesh(mesh, target_faces=100000, smoothing_iterations=0, use_pymeshlab=False)
+        result = postprocess_mesh(
+            mesh, target_faces=100000, smoothing_iterations=0, use_pymeshlab=False
+        )
         # Check centered
         np.testing.assert_allclose(result.centroid, [0, 0, 0], atol=0.1)
         # Check scaled to unit
@@ -41,15 +50,18 @@ class TestPostprocessMesh:
     def test_normals_fixed(self):
         """Post-processed mesh should have consistent normals."""
         mesh = trimesh.creation.icosphere(subdivisions=3)
-        result = postprocess_mesh(mesh, target_faces=100000, smoothing_iterations=1, use_pymeshlab=False)
+        result = postprocess_mesh(
+            mesh, target_faces=100000, smoothing_iterations=1, use_pymeshlab=False
+        )
         assert result.vertex_normals is not None
         assert len(result.vertex_normals) == len(result.vertices)
 
     def test_degenerate_removal(self):
         """Post-processing should handle meshes with degenerate faces."""
         mesh = trimesh.creation.icosphere(subdivisions=3)
-        original_faces = len(mesh.faces)
-        result = postprocess_mesh(mesh, target_faces=100000, smoothing_iterations=0, use_pymeshlab=False)
+        result = postprocess_mesh(
+            mesh, target_faces=100000, smoothing_iterations=0, use_pymeshlab=False
+        )
         # Should still produce a valid mesh
         assert len(result.faces) > 0
         assert len(result.vertices) > 0
@@ -58,7 +70,9 @@ class TestPostprocessMesh:
         """Smoothing should not drastically change vertex count."""
         mesh = trimesh.creation.icosphere(subdivisions=3)
         original_verts = len(mesh.vertices)
-        result = postprocess_mesh(mesh, target_faces=100000, smoothing_iterations=3, use_pymeshlab=False)
+        result = postprocess_mesh(
+            mesh, target_faces=100000, smoothing_iterations=3, use_pymeshlab=False
+        )
         # Vertex count should be unchanged by smoothing
         assert len(result.vertices) == original_verts
 
@@ -79,9 +93,7 @@ class TestValidateMesh:
     def test_non_watertight_validation(self):
         """A non-watertight mesh should report None volume."""
         # Create a plane (non-watertight)
-        vertices = np.array([
-            [0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]
-        ], dtype=np.float64)
+        vertices = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]], dtype=np.float64)
         faces = np.array([[0, 1, 2], [0, 2, 3]])
         mesh = trimesh.Trimesh(vertices=vertices, faces=faces)
 
@@ -97,8 +109,12 @@ class TestValidateMesh:
         stats = validate_mesh(mesh)
 
         expected_keys = {
-            "face_count", "vertex_count", "is_watertight",
-            "euler_number", "bounding_box", "volume"
+            "face_count",
+            "vertex_count",
+            "is_watertight",
+            "euler_number",
+            "bounding_box",
+            "volume",
         }
         assert set(stats.keys()) == expected_keys
 
@@ -122,6 +138,8 @@ class TestNormalizeBoundingBox:
 class TestDecimateMesh:
     def test_trimesh_fallback(self):
         """Decimation should work with trimesh when PyMeshLab is unavailable."""
+        pytest.importorskip("fast_simplification", reason="fallback unavailable")
+
         mesh = trimesh.creation.icosphere(subdivisions=5)
         original_faces = len(mesh.faces)
         assert original_faces > 5000
@@ -177,8 +195,8 @@ class TestBuildCondaCommand:
 class TestRunBridgeSubprocess:
     def test_timeout_raises_runtime_error(self, tmp_path):
         """Should raise RuntimeError on subprocess timeout."""
-        from unittest.mock import patch
         import subprocess
+        from unittest.mock import patch
 
         cmd = ["python", "-c", "import time; time.sleep(100)"]
         expected_output = tmp_path / "nonexistent.obj"
@@ -191,7 +209,7 @@ class TestRunBridgeSubprocess:
 
     def test_missing_output_raises_runtime_error(self, tmp_path):
         """Should raise RuntimeError when subprocess succeeds but no output file."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         cmd = ["echo", "ok"]
         expected_output = tmp_path / "should_not_exist.obj"
@@ -203,11 +221,13 @@ class TestRunBridgeSubprocess:
 
         with patch("src.stage2_reconstruct.subprocess.run", return_value=mock_result):
             with pytest.raises(RuntimeError, match="output mesh not found"):
-                _run_bridge_subprocess(cmd, expected_output, timeout=300, backend_name="TestBackend")
+                _run_bridge_subprocess(
+                    cmd, expected_output, timeout=300, backend_name="TestBackend"
+                )
 
     def test_nonzero_exit_raises_runtime_error(self, tmp_path):
         """Should raise RuntimeError when subprocess exits with nonzero code."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
 
         cmd = ["python", "-c", "exit(1)"]
         expected_output = tmp_path / "out.obj"
@@ -219,7 +239,9 @@ class TestRunBridgeSubprocess:
 
         with patch("src.stage2_reconstruct.subprocess.run", return_value=mock_result):
             with pytest.raises(RuntimeError, match="exited with code 1"):
-                _run_bridge_subprocess(cmd, expected_output, timeout=300, backend_name="TestBackend")
+                _run_bridge_subprocess(
+                    cmd, expected_output, timeout=300, backend_name="TestBackend"
+                )
 
     def test_conda_not_found_raises_runtime_error(self, tmp_path):
         """Should raise RuntimeError when conda is not found."""
@@ -232,7 +254,9 @@ class TestRunBridgeSubprocess:
             mock_run.side_effect = FileNotFoundError("conda not found")
 
             with pytest.raises(RuntimeError, match="conda"):
-                _run_bridge_subprocess(cmd, expected_output, timeout=300, backend_name="TestBackend")
+                _run_bridge_subprocess(
+                    cmd, expected_output, timeout=300, backend_name="TestBackend"
+                )
 
 
 class TestReconstructWithCrmErrors:

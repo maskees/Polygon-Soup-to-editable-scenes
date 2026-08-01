@@ -17,11 +17,7 @@ Architecture:
 import json
 import logging
 import subprocess
-import sys
 from pathlib import Path
-from typing import Optional
-
-import numpy as np
 
 from src.config import PipelineConfig
 
@@ -112,6 +108,7 @@ def run_reconstruction(context: dict) -> dict:
 # Backend: CRM (subprocess isolation)
 # ─────────────────────────────────────────────────────────────────
 
+
 def reconstruct_with_crm(
     images: list[Path],
     checkpoint_dir: Path,
@@ -176,9 +173,12 @@ def reconstruct_with_crm(
         conda_env=conda_env,
         script=bridge_script,
         args=[
-            "--input", str(front_image_path),
-            "--output", str(output_mesh_path),
-            "--checkpoint-dir", str(checkpoint_dir),
+            "--input",
+            str(front_image_path),
+            "--output",
+            str(output_mesh_path),
+            "--checkpoint-dir",
+            str(checkpoint_dir),
         ],
         low_vram=low_vram,
     )
@@ -198,6 +198,7 @@ def reconstruct_with_crm(
 # ─────────────────────────────────────────────────────────────────
 # Backend: Unique3D (subprocess or direct import)
 # ─────────────────────────────────────────────────────────────────
+
 
 def reconstruct_with_unique3d(
     images: list[Path],
@@ -243,18 +244,19 @@ def reconstruct_with_unique3d(
     # Locate bridge script
     bridge_script = Path("scripts/unique3d_bridge.py")
     if not bridge_script.exists():
-        raise FileNotFoundError(
-            f"Unique3D bridge script not found at {bridge_script}."
-        )
+        raise FileNotFoundError(f"Unique3D bridge script not found at {bridge_script}.")
 
     # Build subprocess command
     cmd = _build_conda_command(
         conda_env=conda_env,
         script=bridge_script,
         args=[
-            "--input-dir", str(input_dir),
-            "--output", str(output_mesh_path),
-            "--checkpoint-dir", str(checkpoint_dir),
+            "--input-dir",
+            str(input_dir),
+            "--output",
+            str(output_mesh_path),
+            "--checkpoint-dir",
+            str(checkpoint_dir),
         ],
         low_vram=low_vram,
     )
@@ -274,6 +276,7 @@ def reconstruct_with_unique3d(
 # ─────────────────────────────────────────────────────────────────
 # Subprocess utilities
 # ─────────────────────────────────────────────────────────────────
+
 
 def _build_conda_command(
     conda_env: str,
@@ -304,8 +307,13 @@ def _build_conda_command(
         Command list suitable for subprocess.run().
     """
     cmd = [
-        "conda", "run", "-n", conda_env, "--no-capture-output",
-        "python", str(script),
+        "conda",
+        "run",
+        "-n",
+        conda_env,
+        "--no-capture-output",
+        "python",
+        str(script),
     ]
     cmd.extend(args)
 
@@ -411,6 +419,7 @@ def _run_bridge_subprocess(
 # Mesh post-processing
 # ─────────────────────────────────────────────────────────────────
 
+
 def postprocess_mesh(
     mesh: "trimesh.Trimesh",
     target_faces: int = 50000,
@@ -507,11 +516,14 @@ def _decimate_mesh(
     if use_pymeshlab:
         try:
             import pymeshlab
+
             ms = pymeshlab.MeshSet()
-            ms.add_mesh(pymeshlab.Mesh(
-                vertex_matrix=mesh.vertices,
-                face_matrix=mesh.faces,
-            ))
+            ms.add_mesh(
+                pymeshlab.Mesh(
+                    vertex_matrix=mesh.vertices,
+                    face_matrix=mesh.faces,
+                )
+            )
             ms.meshing_decimation_quadric_edge_collapse(
                 targetfacenum=target_faces,
                 qualitythr=0.3,
@@ -537,7 +549,7 @@ def _decimate_mesh(
     # but some versions use target_reduction (fraction). Try both.
     try:
         mesh = mesh.simplify_quadric_decimation(target_faces)
-    except (ValueError, TypeError):
+    except Exception:
         # Newer trimesh/fast_simplification uses target_reduction (0-1 fraction)
         current_faces = len(mesh.faces)
         if current_faces > 0:
@@ -545,6 +557,7 @@ def _decimate_mesh(
             reduction = max(0.01, min(0.99, reduction))
             try:
                 import fast_simplification
+
                 verts_out, faces_out = fast_simplification.simplify(
                     mesh.vertices, mesh.faces, target_reduction=reduction
                 )
@@ -581,11 +594,14 @@ def _fill_holes(
     if use_pymeshlab and not mesh.is_watertight:
         try:
             import pymeshlab
+
             ms = pymeshlab.MeshSet()
-            ms.add_mesh(pymeshlab.Mesh(
-                vertex_matrix=mesh.vertices,
-                face_matrix=mesh.faces,
-            ))
+            ms.add_mesh(
+                pymeshlab.Mesh(
+                    vertex_matrix=mesh.vertices,
+                    face_matrix=mesh.faces,
+                )
+            )
             ms.meshing_close_holes(maxholesize=100)
             result = ms.current_mesh()
             mesh = trimesh.Trimesh(
@@ -593,7 +609,7 @@ def _fill_holes(
                 faces=result.face_matrix(),
                 process=True,
             )
-            logger.info(f"  Hole filling via PyMeshLab complete")
+            logger.info("  Hole filling via PyMeshLab complete")
             return mesh
         except ImportError:
             pass

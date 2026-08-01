@@ -38,6 +38,7 @@ def log_gpu_status() -> None:
         if not torch.cuda.is_available():
             logger.info("  GPU: No CUDA device available (running on CPU)")
             from rich.console import Console
+
             Console().print("  [yellow]⚠ No CUDA GPU detected — running on CPU[/]")
             return
 
@@ -48,6 +49,7 @@ def log_gpu_status() -> None:
         reserved = torch.cuda.memory_reserved(device) / (1024**3)
 
         from rich.console import Console
+
         console = Console()
         console.print(f"  GPU: {name}")
         console.print(f"  VRAM: {allocated:.1f}GB allocated / {total:.1f}GB total")
@@ -69,6 +71,7 @@ def clear_gpu_cache() -> None:
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
             import gc
+
             gc.collect()
     except Exception:
         pass

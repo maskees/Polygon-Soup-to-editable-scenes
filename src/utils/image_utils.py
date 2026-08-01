@@ -49,8 +49,6 @@ def overlay_mask_on_image(
 
     colored = np.zeros_like(image)
     colored[:] = color
-    overlay[mask_bool] = cv2.addWeighted(
-        image[mask_bool], 1 - alpha, colored[mask_bool], alpha, 0
-    )
+    overlay[mask_bool] = cv2.addWeighted(image[mask_bool], 1 - alpha, colored[mask_bool], alpha, 0)
 
     return overlay

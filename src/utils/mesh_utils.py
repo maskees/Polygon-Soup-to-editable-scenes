@@ -12,6 +12,7 @@ import numpy as np
 def load_mesh(path: Path | str) -> "trimesh.Trimesh":
     """Load a mesh from file, forcing single mesh output."""
     import trimesh
+
     return trimesh.load(str(path), force="mesh")
 
 

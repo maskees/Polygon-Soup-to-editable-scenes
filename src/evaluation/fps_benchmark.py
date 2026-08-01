@@ -83,7 +83,7 @@ def benchmark_viewport_fps(usd_file: str, duration: float = 5.0) -> dict:
         "mesh_count": len(all_meshes),
     }
 
-    print(f"\n=== Viewport FPS Benchmark ===")
+    print("\n=== Viewport FPS Benchmark ===")
     print(f"  FPS:    {results['fps']}")
     print(f"  Frames: {results['frame_count']}")
     print(f"  Prims:  {results['prim_count']}")

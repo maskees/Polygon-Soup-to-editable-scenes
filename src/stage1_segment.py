@@ -128,8 +128,8 @@ def load_sam2_model(
         If sam2 package is not installed.
     """
     try:
-        from sam2.build_sam import build_sam2
         from sam2.automatic_mask_generator import SAM2AutomaticMaskGenerator
+        from sam2.build_sam import build_sam2
     except ImportError:
         raise ImportError(
             "SAM 2 not installed. Run: pip install segment-anything-2 "
@@ -184,9 +184,7 @@ def segment_single_view(
     best_mask = masks_sorted[0]["segmentation"]  # Boolean array (H, W)
 
     # Morphological closing to fill small holes
-    kernel = cv2.getStructuringElement(
-        cv2.MORPH_ELLIPSE, (morph_kernel_size, morph_kernel_size)
-    )
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (morph_kernel_size, morph_kernel_size))
     mask_uint8 = (best_mask.astype(np.uint8)) * 255
     mask_uint8 = cv2.morphologyEx(mask_uint8, cv2.MORPH_CLOSE, kernel)
 

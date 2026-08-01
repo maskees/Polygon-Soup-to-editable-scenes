@@ -1,19 +1,18 @@
 """Tests for Stage 3 — Semantic Partitioning."""
 
 import numpy as np
-import pytest
 import trimesh
 
 from src.stage3_partition import (
+    _look_at,
+    cluster_3d_features,
+    extract_dino_features,
     extract_submeshes,
     map_point_labels_to_faces,
     merge_small_parts,
     mesh_to_pointcloud,
-    smooth_boundaries,
     render_multiview,
-    extract_dino_features,
-    cluster_3d_features,
-    _look_at,
+    smooth_boundaries,
 )
 
 
@@ -90,13 +89,12 @@ class TestSmoothBoundaries:
 
         # Create two clean halves
         labels = np.zeros(n_faces, dtype=np.int32)
-        labels[n_faces // 2:] = 1
+        labels[n_faces // 2 :] = 1
 
         # Inject noise: flip 5% of labels randomly
         np.random.seed(42)
         noise_mask = np.random.rand(n_faces) < 0.05
         labels[noise_mask] = 1 - labels[noise_mask]
-        noisy_unique = len(np.unique(labels))
 
         result = smooth_boundaries(mesh, labels, iterations=3)
 
@@ -135,7 +133,7 @@ class TestMergeSmallParts:
         n_faces = len(mesh.faces)
 
         labels = np.zeros(n_faces, dtype=np.int32)
-        labels[n_faces // 2:] = 1  # Half the faces
+        labels[n_faces // 2 :] = 1  # Half the faces
 
         result = merge_small_parts(mesh, labels, min_faces=50)
         assert 0 in result
@@ -194,10 +192,10 @@ class TestLookAt:
         up = np.array([0, 1, 0.0])
 
         result = _look_at(eye, target, up)
-        R = result[:3, :3]
+        r_mat = result[:3, :3]
 
         # R^T * R should be approximately identity
-        product = R.T @ R
+        product = r_mat.T @ r_mat
         np.testing.assert_allclose(product, np.eye(3), atol=1e-6)
 
 
@@ -207,7 +205,7 @@ class TestExtractDinoFeatures:
         images = [np.zeros((224, 224, 3), dtype=np.uint8) for _ in range(4)]
         features = extract_dino_features(images, device="cpu", use_float16=False)
 
-        assert features.shape == (4, 1024)  # n_views x DINOv2 ViT-L dim
+        assert features.shape == (4, 256, 1024)  # n_views x n_patches x DINOv2 ViT-L dim
         assert features.dtype == np.float32
 
 
@@ -271,4 +269,3 @@ class TestExtractSubmeshes:
 
         paths = extract_submeshes(mesh, labels, tmp_path)
         assert len(paths) == 3
-

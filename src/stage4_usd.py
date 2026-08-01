@@ -11,8 +11,6 @@ Output: .usda master files with individually toggleable layers
 import logging
 from pathlib import Path
 
-import numpy as np
-
 from src.config import PipelineConfig
 from src.stage3_partition import PART_COLORS
 
@@ -42,7 +40,9 @@ def run_usd_export(context: dict) -> dict:
 
     sub_meshes = context["sub_meshes"]
     labels = context.get("part_labels", [f"part_{i:03d}" for i in range(len(sub_meshes))])
-    colors = context.get("part_colors", [PART_COLORS[i % len(PART_COLORS)] for i in range(len(sub_meshes))])
+    colors = context.get(
+        "part_colors", [PART_COLORS[i % len(PART_COLORS)] for i in range(len(sub_meshes))]
+    )
 
     up_axis = context.get("up_axis", "both")
 
@@ -117,7 +117,7 @@ def create_usd_scene(
         Path to the saved .usda file.
     """
     import trimesh
-    from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade
+    from pxr import Usd, UsdGeom
 
     # Create stage
     stage = Usd.Stage.CreateNew(str(output_path))
@@ -268,16 +268,12 @@ def assign_preview_material(
     shader.CreateIdAttr("UsdPreviewSurface")
 
     # Set diffuse color
-    shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(
-        Gf.Vec3f(*color)
-    )
+    shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*color))
     shader.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(0.7)
     shader.CreateInput("metallic", Sdf.ValueTypeNames.Float).Set(0.0)
 
     # Connect shader to material surface output
-    material.CreateSurfaceOutput().ConnectToSource(
-        UsdShade.ConnectableAPI(shader), "surface"
-    )
+    material.CreateSurfaceOutput().ConnectToSource(UsdShade.ConnectableAPI(shader), "surface")
 
     # Bind material to mesh
     UsdShade.MaterialBindingAPI.Apply(mesh_prim.GetPrim())
@@ -328,11 +324,17 @@ def export_both_axes(
         (y_up_path, z_up_path)
     """
     y_up = create_usd_scene(
-        sub_meshes, output_dir / "scene_y_up.usda", up_axis="y",
-        labels=labels, colors=colors,
+        sub_meshes,
+        output_dir / "scene_y_up.usda",
+        up_axis="y",
+        labels=labels,
+        colors=colors,
     )
     z_up = create_usd_scene(
-        sub_meshes, output_dir / "scene_z_up.usda", up_axis="z",
-        labels=labels, colors=colors,
+        sub_meshes,
+        output_dir / "scene_z_up.usda",
+        up_axis="z",
+        labels=labels,
+        colors=colors,
     )
     return y_up, z_up

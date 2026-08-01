@@ -1,6 +1,5 @@
 """Tests for Stage 4 — USD Export."""
 
-import numpy as np
 import pytest
 import trimesh
 
@@ -8,7 +7,7 @@ import trimesh
 def _usd_available() -> bool:
     """Check if usd-core is installed."""
     try:
-        from pxr import Usd
+        from pxr import Usd  # noqa: F401
 
         return True
     except ImportError:
@@ -97,10 +96,7 @@ class TestUsdExport:
         from pxr import Usd, UsdGeom
 
         stage = Usd.Stage.Open(str(output))
-        mesh_prims = [
-            p for p in stage.Traverse()
-            if p.IsA(UsdGeom.Mesh)
-        ]
+        mesh_prims = [p for p in stage.Traverse() if p.IsA(UsdGeom.Mesh)]
         assert len(mesh_prims) == 3
 
     @pytest.mark.skipif(
@@ -122,10 +118,7 @@ class TestUsdExport:
         from pxr import Usd, UsdGeom, UsdShade
 
         stage = Usd.Stage.Open(str(output))
-        mesh_prims = [
-            p for p in stage.Traverse()
-            if p.IsA(UsdGeom.Mesh)
-        ]
+        mesh_prims = [p for p in stage.Traverse() if p.IsA(UsdGeom.Mesh)]
 
         for prim in mesh_prims:
             binding_api = UsdShade.MaterialBindingAPI(prim)
@@ -176,10 +169,7 @@ class TestUsdExport:
         from pxr import Usd, UsdGeom
 
         stage = Usd.Stage.Open(str(output))
-        mesh_prims = [
-            p for p in stage.Traverse()
-            if p.IsA(UsdGeom.Mesh)
-        ]
+        mesh_prims = [p for p in stage.Traverse() if p.IsA(UsdGeom.Mesh)]
 
         for prim in mesh_prims:
             label = prim.GetCustomDataByKey("semantic_label")
