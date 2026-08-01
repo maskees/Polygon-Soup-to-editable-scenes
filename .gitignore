@@ -41,3 +41,22 @@ data/output/
 *.log
 wandb/
 IMPLEMENTATION_PLAN.md
+
+# Secrets & Environment Variables
+.env
+.env.local
+.env.*.local
+*.pem
+
+# Webapp Dependencies
+node_modules/
+.npm/
+package-lock.json
+
+# User Uploads / Web Sessions
+data/input/web_session/
+
+# Agent/IDE Specific
+.gemini/
+.tempmediaStorage/
+brain/

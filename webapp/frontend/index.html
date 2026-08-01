@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Polygon Soup Pipeline | 3D Demo</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Model Viewer -->
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="background-orbs">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+    </div>
+
+    <main class="container">
+        <header>
+            <h1>Polygon Soup to Editable Scenes</h1>
+            <p>Upload a 2D image and watch the pipeline automatically segment, reconstruct, and slice it into a production-ready OpenUSD 3D asset.</p>
+        </header>
+
+        <div class="glass-panel main-panel">
+            <!-- Upload Section -->
+            <div id="upload-section" class="section active">
+                <div class="drop-zone" id="drop-zone">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="upload-icon"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                    <h2>Drag & Drop your image</h2>
+                    <p>or click to browse</p>
+                    <input type="file" id="file-input" accept="image/png, image/jpeg, image/jpg" hidden>
+                </div>
+            </div>
+
+            <!-- Processing Section -->
+            <div id="processing-section" class="section hidden">
+                <div class="loader-container">
+                    <div class="spinner"></div>
+                    <h2 id="status-text">Processing Image...</h2>
+                    <p class="subtitle">This may take a few minutes as the models run locally.</p>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+            </div>
+
+            <!-- Result Section -->
+            <div id="result-section" class="section hidden">
+                <h2>Reconstruction Complete!</h2>
+                <div class="model-container">
+                    <model-viewer 
+                        id="viewer"
+                        src="" 
+                        alt="A 3D model of the reconstruction" 
+                        auto-rotate 
+                        camera-controls
+                        shadow-intensity="1">
+                    </model-viewer>
+                </div>
+                <div class="actions">
+                    <button class="btn btn-primary" id="download-btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        Download OpenUSD
+                    </button>
+                    <button class="btn btn-secondary" id="reset-btn">
+                        Try Another
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>

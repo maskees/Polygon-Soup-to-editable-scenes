@@ -1,0 +1,9 @@
+# Scopus Paper Abstract Draft
+**Target Venue:** Computers & Graphics (Elsevier)
+
+**Title:** From Polygon Soup to Editable Scenes: An End-to-End Pipeline for Compositional 3D Asset Reconstruction
+
+**Abstract:**
+Reconstructing editable, semantically decomposed 3D assets from sparse 2D images remains a highly fragmented process in modern computer graphics. While recent feed-forward 3D generative models successfully synthesize geometric structures rapidly, they inherently produce monolithic "polygon soup" that lacks the semantic breakdown required by 3D artists in downstream digital content creation (DCC) tools. Conversely, 3D foundation models enable zero-shot part segmentation but have not been formally adapted to process these newly generated feed-forward meshes. We present a novel, fully automated five-stage pipeline that bridges this gap. Our architecture takes four sparse orthogonal images as input, utilizes SAM 2 for silhouette extraction, generates a continuous monolithic mesh via a Convolutional Reconstruction Model (CRM), and leverages a distilled PointTransformer V3 network (SAMPart3D) for zero-shot 3D semantic partitioning. Finally, the semantically sliced asset is exported natively as an axis-aligned OpenUSD scene featuring toggleable visibility layers. Extensive evaluations demonstrate robust geometric quality with a mean Chamfer Distance of X.XX and high semantic fidelity with a per-part IoU of X.XX against ground-truth meshes. Real-world profiling confirms that the generated multi-part USD scenes maintain >30 FPS in Autodesk Maya viewports. This work establishes the first end-to-end pipeline capable of converting sparse orthogonal views into production-ready, semantically editable 3D assets without manual intervention or text prompts.
+
+**Keywords:** 3D Reconstruction, Semantic Segmentation, OpenUSD, Zero-Shot Learning, Neural Rendering, Mesh Processing
