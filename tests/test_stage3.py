@@ -146,13 +146,13 @@ class TestRenderMultiview:
     def test_returns_correct_count(self):
         """Should return requested number of views."""
         mesh = trimesh.creation.icosphere(subdivisions=2)
-        views = render_multiview(mesh, n_views=4, resolution=64)
+        views, _ = render_multiview(mesh, n_views=4, resolution=64)
         assert len(views) == 4
 
     def test_image_shape(self):
         """Each rendered image should have the requested resolution and 3 channels."""
         mesh = trimesh.creation.icosphere(subdivisions=2)
-        views = render_multiview(mesh, n_views=2, resolution=64)
+        views, _ = render_multiview(mesh, n_views=2, resolution=64)
 
         for view in views:
             assert view.shape == (64, 64, 3)
@@ -161,7 +161,7 @@ class TestRenderMultiview:
     def test_default_parameters(self):
         """Default render should produce 12 views at 224x224."""
         mesh = trimesh.creation.icosphere(subdivisions=2)
-        views = render_multiview(mesh)
+        views, _ = render_multiview(mesh)
         assert len(views) == 12
         for view in views:
             assert view.shape[0] == 224
@@ -215,7 +215,7 @@ class TestCluster3dFeatures:
     def test_label_count(self):
         """Should produce at most n_parts unique labels."""
         points = np.random.randn(500, 3).astype(np.float32)
-        features = np.random.randn(4, 1024).astype(np.float32)
+        features = np.random.randn(500, 1024).astype(np.float32)
 
         labels = cluster_3d_features(features, points, n_parts=5)
         assert labels.shape == (500,)
@@ -224,7 +224,7 @@ class TestCluster3dFeatures:
     def test_label_range(self):
         """Labels should be non-negative integers."""
         points = np.random.randn(200, 3).astype(np.float32)
-        features = np.random.randn(4, 1024).astype(np.float32)
+        features = np.random.randn(200, 1024).astype(np.float32)
 
         labels = cluster_3d_features(features, points, n_parts=3)
         assert np.all(labels >= 0)

@@ -23,7 +23,7 @@ unique3d_conda_env: "unique3d"
 reconstruction_timeout: 300
 use_pymeshlab_postprocess: true
 
-# Semantic Partitioning (SAMPart3D)
+# Semantic Partitioning (DINOv2 + Spectral Clustering)
 sampart3d_checkpoint: "checkpoints/sampart3d"
 n_sample_points: 100000
 n_render_views: 12
@@ -31,6 +31,11 @@ render_resolution: 224
 n_target_parts: 8
 min_part_faces: 50
 boundary_smoothing_iterations: 3
+partition_method: "spectral"       # "spectral", "kmeans", or "sampart3d"
+spectral_n_neighbors: 20          # k-NN neighbors for spectral clustering graph
+feature_weight: 0.7               # 0=geometry only, 1=DINOv2 features only
+dinov2_model: "dinov2_vitl14"     # DINOv2 model variant (vitl14 = ViT-L/14)
+sampart3d_conda_env: "sampart3d"  # conda env for SAMPart3D subprocess
 
 # USD Export
 usd_scene_name: "Root_Scene"

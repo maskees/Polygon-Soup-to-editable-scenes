@@ -46,7 +46,7 @@ class PipelineConfig:
     reconstruction_timeout: int = 300
     use_pymeshlab_postprocess: bool = True
 
-    # Partitioning (SAMPart3D)
+    # Partitioning (DINOv2 + Spectral Clustering)
     sampart3d_checkpoint: str = "checkpoints/sampart3d"
     n_sample_points: int = 100000
     n_render_views: int = 12
@@ -54,6 +54,11 @@ class PipelineConfig:
     n_target_parts: int = 8
     min_part_faces: int = 50
     boundary_smoothing_iterations: int = 3
+    partition_method: str = "spectral"  # "spectral", "kmeans", or "sampart3d"
+    spectral_n_neighbors: int = 20
+    feature_weight: float = 0.7  # balance: 0=geometry only, 1=features only
+    dinov2_model: str = "dinov2_vitl14"
+    sampart3d_conda_env: str = "sampart3d"
 
     # USD Export
     usd_scene_name: str = "Root_Scene"
