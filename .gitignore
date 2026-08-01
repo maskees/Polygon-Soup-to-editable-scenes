@@ -40,3 +40,4 @@ data/output/
 # Logs
 *.log
 wandb/
+IMPLEMENTATION_PLAN.md
