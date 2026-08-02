@@ -2,7 +2,7 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -29,12 +29,19 @@ INTERMEDIATE_DIR = PROJECT_ROOT / "data" / "intermediate" / "web_session"
 FRONTEND_DIR = PROJECT_ROOT / "webapp" / "frontend"
 
 @app.post("/api/reconstruct")
-async def reconstruct(image: UploadFile = File(...)):
+async def reconstruct(
+    mode: str = Form(...),
+    image: UploadFile = File(None),
+    front: UploadFile = File(None),
+    back: UploadFile = File(None),
+    left: UploadFile = File(None),
+    right: UploadFile = File(None)
+):
     """
-    Accepts a single image, prepares the 4 required orthogonal views (by mocking for the demo),
-    and runs the 3D reconstruction pipeline.
+    Runs the 3D reconstruction pipeline.
+    Routes to CRM for single mode, Unique3D for multi mode.
     """
-    logger.info(f"Received image: {image.filename}")
+    logger.info(f"Received request in mode: {mode}")
     
     # 1. Prepare directories
     if INPUT_DIR.exists():
@@ -45,48 +52,53 @@ async def reconstruct(image: UploadFile = File(...)):
         shutil.rmtree(OUTPUT_DIR)
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    # 2. Save the uploaded image as front view
-    content = await image.read()
-    front_path = INPUT_DIR / "front.png"
-    with open(front_path, "wb") as f:
-        f.write(content)
+    # 2. Save uploaded images
+    if mode == "single":
+        if not image:
+            return JSONResponse(status_code=400, content={"error": "No image provided for single mode"})
+        front_path = INPUT_DIR / "front.png"
+        with open(front_path, "wb") as f:
+            f.write(await image.read())
+        # For CRM, we just duplicate it to satisfy the 4-file check in stage0, 
+        # but CRM will only use front.png in stage2.
+        for view in ["back.png", "left.png", "right.png"]:
+            shutil.copy(front_path, INPUT_DIR / view)
+        backend = "crm"
+    else:
+        if not all([front, back, left, right]):
+            return JSONResponse(status_code=400, content={"error": "All 4 views required for multi mode"})
+        for file_obj, name in [(front, "front.png"), (back, "back.png"), (left, "left.png"), (right, "right.png")]:
+            with open(INPUT_DIR / name, "wb") as f:
+                f.write(await file_obj.read())
+        backend = "unique3d"
 
-    # 3. For this demo, since we require 4 views and don't have a 2D-to-3D multi-view generator 
-    # running, we will duplicate the image for the other 3 views just to satisfy the pipeline input.
-    for view in ["back.png", "left.png", "right.png"]:
-        shutil.copy(front_path, INPUT_DIR / view)
-
-    # 4. Invoke the pipeline
+    # 3. Invoke the real pipeline
     cmd = [
         "python", str(PROJECT_ROOT / "main.py"),
         "--input", str(INPUT_DIR),
-        "--output", str(OUTPUT_DIR)
+        "--output", str(OUTPUT_DIR),
+        "--backend", backend
     ]
     
     logger.info(f"Running pipeline: {' '.join(cmd)}")
     
     try:
-        # We run it with a timeout, and capture output
-        process = subprocess.run(cmd, cwd=str(PROJECT_ROOT), capture_output=True, text=True, timeout=300)
+        # Timeout 30 minutes for real pipeline
+        process = subprocess.run(cmd, cwd=str(PROJECT_ROOT), capture_output=True, text=True, timeout=1800)
         
         if process.returncode != 0:
             logger.error(f"Pipeline failed: {process.stderr}")
-            # If the failure is due to missing torch/models (which is currently true for Python 3.13),
-            # we will return a 500 error with the reason.
             return JSONResponse(
                 status_code=500,
                 content={
                     "error": "Pipeline execution failed",
-                    "details": process.stderr[-500:], # Last 500 chars
-                    "hint": "Ensure torch is installed and models are downloaded in external/ and checkpoints/"
+                    "details": process.stderr[-500:],
                 }
             )
             
-        # Success! Return the URL to download the USD file
-        # Check which axis was generated, default to y_up
-        usd_file = OUTPUT_DIR / "scene_y_up.usda"
+        usd_file = OUTPUT_DIR / "scene_y_up.glb"
         if not usd_file.exists():
-            return JSONResponse(status_code=500, content={"error": "Pipeline succeeded but output USD not found."})
+            return JSONResponse(status_code=500, content={"error": "Pipeline succeeded but output GLB not found."})
             
         return {"status": "success", "message": "Reconstruction complete", "download_url": "/api/download"}
         
@@ -98,10 +110,10 @@ async def reconstruct(image: UploadFile = File(...)):
 
 @app.get("/api/download")
 async def download_result():
-    usd_file = OUTPUT_DIR / "scene_y_up.usda"
+    usd_file = OUTPUT_DIR / "scene_y_up.glb"
     if not usd_file.exists():
         raise HTTPException(status_code=404, detail="Result not found")
-    return FileResponse(path=usd_file, filename="reconstructed_scene.usda")
+    return FileResponse(path=usd_file, filename="reconstructed_scene.glb", media_type="model/gltf-binary")
 
 # Serve static frontend files
 app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")

@@ -25,12 +25,34 @@
         <div class="glass-panel main-panel">
             <!-- Upload Section -->
             <div id="upload-section" class="section active">
-                <div class="drop-zone" id="drop-zone">
+                <div class="mode-selector">
+                    <label class="radio-label">
+                        <input type="radio" name="upload-mode" value="single" checked> Single Image
+                    </label>
+                    <label class="radio-label">
+                        <input type="radio" name="upload-mode" value="multi"> 4 Views (Front, Back, Left, Right)
+                    </label>
+                </div>
+
+                <!-- Single Mode -->
+                <div class="drop-zone" id="drop-zone-single">
                     <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="upload-icon"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
                     <h2>Drag & Drop your image</h2>
                     <p>or click to browse</p>
-                    <input type="file" id="file-input" accept="image/png, image/jpeg, image/jpg" hidden>
+                    <input type="file" id="file-input-single" accept="image/png, image/jpeg, image/jpg" hidden>
+                    <div id="preview-single" class="preview-container"></div>
                 </div>
+
+                <!-- Multi Mode -->
+                <div class="drop-zone hidden" id="drop-zone-multi">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="upload-icon"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                    <h2>Upload 4 Orthogonal Views</h2>
+                    <p>Select Front, Back, Left, and Right images</p>
+                    <input type="file" id="file-input-multi" accept="image/png, image/jpeg, image/jpg" multiple hidden>
+                    <div id="preview-multi" class="preview-container multi-preview"></div>
+                </div>
+                
+                <button class="btn btn-primary start-btn" id="start-btn" disabled>Start Reconstruction</button>
             </div>
 
             <!-- Processing Section -->
@@ -61,7 +83,7 @@
                 <div class="actions">
                     <button class="btn btn-primary" id="download-btn">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                        Download OpenUSD
+                        Download 3D Model
                     </button>
                     <button class="btn btn-secondary" id="reset-btn">
                         Try Another
