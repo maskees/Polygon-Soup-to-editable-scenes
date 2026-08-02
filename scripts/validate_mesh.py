@@ -133,9 +133,7 @@ def validate_mesh(mesh_path: Path, strict: bool = False) -> dict:
     if strict:
         critical_checks.extend(["watertight", "bounding_box_normalized", "single_body"])
 
-    report["passed"] = all(
-        report["checks"].get(check, True) for check in critical_checks
-    )
+    report["passed"] = all(report["checks"].get(check, True) for check in critical_checks)
 
     return report
 

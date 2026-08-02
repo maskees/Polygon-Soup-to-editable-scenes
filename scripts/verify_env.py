@@ -17,7 +17,9 @@ if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8")
 
 
-def check_package(name: str, import_name: str | None = None, min_version: str | None = None) -> dict:
+def check_package(
+    name: str, import_name: str | None = None, min_version: str | None = None
+) -> dict:
     """Check if a package is installed and meets version requirements."""
     import_name = import_name or name
     result = {"name": name, "installed": False, "version": None, "status": "MISSING"}

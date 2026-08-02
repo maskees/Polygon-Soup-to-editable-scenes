@@ -17,9 +17,9 @@ def test_usd_import(usda_path):
     cmds.file(new=True, force=True)
 
     # Make sure USD plugin is loaded
-    if not cmds.pluginInfo('mayaUsdPlugin', query=True, loaded=True):
+    if not cmds.pluginInfo("mayaUsdPlugin", query=True, loaded=True):
         try:
-            cmds.loadPlugin('mayaUsdPlugin')
+            cmds.loadPlugin("mayaUsdPlugin")
         except Exception as e:
             cmds.error(f"Could not load mayaUsdPlugin: {e}")
             return
@@ -27,7 +27,14 @@ def test_usd_import(usda_path):
     # Import the USD file
     print(f"Importing {usda_path}...")
     try:
-        cmds.file(usda_path, i=True, type="USD Import", ignoreVersion=True, mergeNamespacesOnClash=False, namespace="test")
+        cmds.file(
+            usda_path,
+            i=True,
+            type="USD Import",
+            ignoreVersion=True,
+            mergeNamespacesOnClash=False,
+            namespace="test",
+        )
         print("Import successful.")
     except Exception as e:
         cmds.error(f"Import failed: {e}")
@@ -42,7 +49,7 @@ def test_usd_import(usda_path):
     print("Starting FPS benchmark...")
     start_time = time.time()
     frames = 0
-    duration = 5.0 # Test for 5 seconds
+    duration = 5.0  # Test for 5 seconds
 
     # Orbit camera slightly each frame
     camera = "persp"
@@ -71,6 +78,7 @@ def test_usd_import(usda_path):
         print(f"  Node: {p} | Visibility: {'ON' if visibility else 'OFF'}")
 
     return fps
+
 
 if __name__ == "__main__":
     # Example usage:

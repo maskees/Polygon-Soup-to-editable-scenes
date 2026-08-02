@@ -91,7 +91,9 @@ def colorize_by_labels(
     return mesh
 
 
-def load_raw_obj_faces_and_vertices(path: Path | str) -> tuple[list[list[float]], list[int], list[int]]:
+def load_raw_obj_faces_and_vertices(
+    path: Path | str,
+) -> tuple[list[list[float]], list[int], list[int]]:
     """
     Parse OBJ file to extract raw vertices, face_vertex_counts, and face_vertex_indices.
     This preserves quad (4-sided) or N-gon topology without triangulating.
@@ -130,4 +132,3 @@ def load_raw_obj_faces_and_vertices(path: Path | str) -> tuple[list[list[float]]
                 face_indices.extend(v_indices)
 
     return vertices, face_counts, face_indices
-

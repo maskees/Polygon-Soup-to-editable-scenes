@@ -56,6 +56,7 @@ def load_unique3d_pipeline(checkpoint_dir: Path, device: str, use_float16: bool)
         except ImportError:
             # Fallback: try loading from the main app module
             from app import create_pipeline
+
             pipeline = create_pipeline(
                 checkpoint_dir=str(checkpoint_dir),
                 device=device,
@@ -160,7 +161,7 @@ def run_unique3d_inference(pipeline, images, output_path: Path, device: str):
         for v in vertices:
             f.write(f"v {v[0]:.6f} {v[1]:.6f} {v[2]:.6f}\n")
         for face in faces:
-            f.write(f"f {face[0]+1} {face[1]+1} {face[2]+1}\n")
+            f.write(f"f {face[0] + 1} {face[1] + 1} {face[2] + 1}\n")
 
     return output_path
 
@@ -168,12 +169,15 @@ def run_unique3d_inference(pipeline, images, output_path: Path, device: str):
 def main():
     parser = argparse.ArgumentParser(description="Unique3D 3D Reconstruction Bridge")
     parser.add_argument(
-        "--input-dir", "-i", required=True,
+        "--input-dir",
+        "-i",
+        required=True,
         help="Directory containing 4 RGBA images (front, back, left, right)",
     )
     parser.add_argument("--output", "-o", required=True, help="Output path for .obj mesh")
     parser.add_argument(
-        "--checkpoint-dir", default="checkpoints/unique3d",
+        "--checkpoint-dir",
+        default="checkpoints/unique3d",
         help="Unique3D checkpoint directory",
     )
     parser.add_argument("--low-vram", action="store_true", help="Enable float16 mode")
@@ -193,7 +197,9 @@ def main():
 
     device = args.device
     if device == "cuda" and not torch.cuda.is_available():
-        print(json.dumps({"status": "warning", "message": "CUDA not available, falling back to CPU"}))
+        print(
+            json.dumps({"status": "warning", "message": "CUDA not available, falling back to CPU"})
+        )
         device = "cpu"
 
     try:
@@ -221,25 +227,34 @@ def main():
         run_unique3d_inference(pipeline, images, output_path, device)
 
         elapsed = time.time() - start_time
-        print(json.dumps({
-            "status": "success",
-            "message": f"Mesh saved to {output_path}",
-            "output_path": str(output_path),
-            "elapsed_seconds": round(elapsed, 2),
-        }))
+        print(
+            json.dumps(
+                {
+                    "status": "success",
+                    "message": f"Mesh saved to {output_path}",
+                    "output_path": str(output_path),
+                    "elapsed_seconds": round(elapsed, 2),
+                }
+            )
+        )
 
     except Exception as e:
-        print(json.dumps({
-            "status": "error",
-            "message": str(e),
-            "error_type": type(e).__name__,
-        }))
+        print(
+            json.dumps(
+                {
+                    "status": "error",
+                    "message": str(e),
+                    "error_type": type(e).__name__,
+                }
+            )
+        )
         sys.exit(1)
 
     finally:
         # Clean up GPU memory
         if "torch" in sys.modules and device == "cuda":
             import torch
+
             torch.cuda.empty_cache()
 
 

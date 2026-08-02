@@ -704,7 +704,7 @@ def _spectral_cluster(
     sigma = np.median(distances) + 1e-8
     rows = np.repeat(np.arange(n_sub), neighbors.shape[1])
     cols = neighbors.flatten()
-    weights = np.exp(-distances.flatten() ** 2 / (2 * sigma**2))
+    weights = np.exp(-(distances.flatten() ** 2) / (2 * sigma**2))
 
     affinity = csr_matrix((weights, (rows, cols)), shape=(n_sub, n_sub))
     affinity = (affinity + affinity.T) / 2  # Symmetrize

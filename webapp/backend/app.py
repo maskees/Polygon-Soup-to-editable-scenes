@@ -28,6 +28,7 @@ OUTPUT_DIR = PROJECT_ROOT / "data" / "output" / "web_session"
 INTERMEDIATE_DIR = PROJECT_ROOT / "data" / "intermediate" / "web_session"
 FRONTEND_DIR = PROJECT_ROOT / "webapp" / "frontend"
 
+
 @app.post("/api/reconstruct")
 async def reconstruct(
     mode: str = Form(...),
@@ -35,7 +36,7 @@ async def reconstruct(
     front: UploadFile = File(None),
     back: UploadFile = File(None),
     left: UploadFile = File(None),
-    right: UploadFile = File(None)
+    right: UploadFile = File(None),
 ):
     """
     Runs the 3D reconstruction pipeline.
@@ -55,7 +56,9 @@ async def reconstruct(
     # 2. Save uploaded images
     if mode == "single":
         if not image:
-            return JSONResponse(status_code=400, content={"error": "No image provided for single mode"})
+            return JSONResponse(
+                status_code=400, content={"error": "No image provided for single mode"}
+            )
         front_path = INPUT_DIR / "front.png"
         with open(front_path, "wb") as f:
             f.write(await image.read())
@@ -66,25 +69,38 @@ async def reconstruct(
         backend = "crm"
     else:
         if not all([front, back, left, right]):
-            return JSONResponse(status_code=400, content={"error": "All 4 views required for multi mode"})
-        for file_obj, name in [(front, "front.png"), (back, "back.png"), (left, "left.png"), (right, "right.png")]:
+            return JSONResponse(
+                status_code=400, content={"error": "All 4 views required for multi mode"}
+            )
+        for file_obj, name in [
+            (front, "front.png"),
+            (back, "back.png"),
+            (left, "left.png"),
+            (right, "right.png"),
+        ]:
             with open(INPUT_DIR / name, "wb") as f:
                 f.write(await file_obj.read())
         backend = "unique3d"
 
     # 3. Invoke the real pipeline
     cmd = [
-        "python", str(PROJECT_ROOT / "main.py"),
-        "--input", str(INPUT_DIR),
-        "--output", str(OUTPUT_DIR),
-        "--backend", backend
+        "python",
+        str(PROJECT_ROOT / "main.py"),
+        "--input",
+        str(INPUT_DIR),
+        "--output",
+        str(OUTPUT_DIR),
+        "--backend",
+        backend,
     ]
 
     logger.info(f"Running pipeline: {' '.join(cmd)}")
 
     try:
         # Timeout 30 minutes for real pipeline
-        process = subprocess.run(cmd, cwd=str(PROJECT_ROOT), capture_output=True, text=True, timeout=1800)
+        process = subprocess.run(
+            cmd, cwd=str(PROJECT_ROOT), capture_output=True, text=True, timeout=1800
+        )
 
         if process.returncode != 0:
             logger.error(f"Pipeline failed: {process.stderr}")
@@ -93,14 +109,20 @@ async def reconstruct(
                 content={
                     "error": "Pipeline execution failed",
                     "details": process.stderr[-500:],
-                }
+                },
             )
 
         usd_file = OUTPUT_DIR / "scene_y_up.glb"
         if not usd_file.exists():
-            return JSONResponse(status_code=500, content={"error": "Pipeline succeeded but output GLB not found."})
+            return JSONResponse(
+                status_code=500, content={"error": "Pipeline succeeded but output GLB not found."}
+            )
 
-        return {"status": "success", "message": "Reconstruction complete", "download_url": "/api/download"}
+        return {
+            "status": "success",
+            "message": "Reconstruction complete",
+            "download_url": "/api/download",
+        }
 
     except subprocess.TimeoutExpired:
         return JSONResponse(status_code=504, content={"error": "Pipeline execution timed out."})
@@ -113,11 +135,15 @@ async def download_result():
     usd_file = OUTPUT_DIR / "scene_y_up.glb"
     if not usd_file.exists():
         raise HTTPException(status_code=404, detail="Result not found")
-    return FileResponse(path=usd_file, filename="reconstructed_scene.glb", media_type="model/gltf-binary")
+    return FileResponse(
+        path=usd_file, filename="reconstructed_scene.glb", media_type="model/gltf-binary"
+    )
+
 
 # Serve static frontend files
 app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)

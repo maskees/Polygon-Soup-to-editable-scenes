@@ -121,7 +121,6 @@ def create_usd_scene(
     Path
         Path to the saved .usda file.
     """
-    import trimesh
     from pxr import Usd, UsdGeom
 
     # Create stage
@@ -218,7 +217,11 @@ def add_mesh_prim(
         usd_mesh.GetFaceVertexCountsAttr().Set(Vt.IntArray(face_counts))
         usd_mesh.GetFaceVertexIndicesAttr().Set(Vt.IntArray(face_indices))
     else:
-        mesh = mesh_or_path if isinstance(mesh_or_path, trimesh.Trimesh) else trimesh.load(str(mesh_or_path), force="mesh")
+        mesh = (
+            mesh_or_path
+            if isinstance(mesh_or_path, trimesh.Trimesh)
+            else trimesh.load(str(mesh_or_path), force="mesh")
+        )
         points = [Gf.Vec3f(*v) for v in mesh.vertices.tolist()]
         usd_mesh.GetPointsAttr().Set(Vt.Vec3fArray(points))
         face_vertex_counts = [3] * len(mesh.faces)
@@ -239,7 +242,6 @@ def add_mesh_prim(
     prim.SetCustomDataByKey("semantic_label", label)
 
     return usd_mesh
-
 
 
 def assign_preview_material(

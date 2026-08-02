@@ -75,21 +75,23 @@ def load_crm_pipeline(checkpoint_dir: Path, device: str, dtype):
     # Load the CRM reconstruction head
     specs = json.load(open(checkpoint_dir / "specs_objaverse_total.json"))
     crm_model = CRM(specs).to(device)
-    crm_model.load_state_dict(
-        torch.load(str(crm_path), map_location=device), strict=False
-    )
+    crm_model.load_state_dict(torch.load(str(crm_path), map_location=device), strict=False)
     crm_model = crm_model.to(dtype)
     crm_model.eval()
 
     # Load the two-stage diffusion pipeline
-    stage1_model_config = OmegaConf.create({
-        "config": str(checkpoint_dir / "sd-v2-1-diffusers" / "v2-1_512-ema-pruned.yaml"),
-        "resume": str(checkpoint_dir / "pixel-diffusion.ckpt"),
-    })
-    stage2_model_config = OmegaConf.create({
-        "config": str(checkpoint_dir / "sd-v2-1-diffusers" / "v2-1_512-ema-pruned.yaml"),
-        "resume": str(checkpoint_dir / "ccm-diffusion.ckpt"),
-    })
+    stage1_model_config = OmegaConf.create(
+        {
+            "config": str(checkpoint_dir / "sd-v2-1-diffusers" / "v2-1_512-ema-pruned.yaml"),
+            "resume": str(checkpoint_dir / "pixel-diffusion.ckpt"),
+        }
+    )
+    stage2_model_config = OmegaConf.create(
+        {
+            "config": str(checkpoint_dir / "sd-v2-1-diffusers" / "v2-1_512-ema-pruned.yaml"),
+            "resume": str(checkpoint_dir / "ccm-diffusion.ckpt"),
+        }
+    )
 
     # Sampler configs
     stage1_sampler_config = OmegaConf.load(str(stage1_config_path))
@@ -185,7 +187,7 @@ def run_crm_inference(pipeline, crm_model, image, device, output_path: Path):
                 f.write(f"v {v[0]:.6f} {v[1]:.6f} {v[2]:.6f}\n")
             for face in faces:
                 # OBJ faces are 1-indexed
-                f.write(f"f {face[0]+1} {face[1]+1} {face[2]+1}\n")
+                f.write(f"f {face[0] + 1} {face[1] + 1} {face[2] + 1}\n")
 
     return output_path
 
@@ -194,7 +196,9 @@ def main():
     parser = argparse.ArgumentParser(description="CRM 3D Reconstruction Bridge")
     parser.add_argument("--input", "-i", required=True, help="Path to front-view RGBA image")
     parser.add_argument("--output", "-o", required=True, help="Output path for .obj mesh")
-    parser.add_argument("--checkpoint-dir", default="checkpoints/crm", help="CRM checkpoint directory")
+    parser.add_argument(
+        "--checkpoint-dir", default="checkpoints/crm", help="CRM checkpoint directory"
+    )
     parser.add_argument("--low-vram", action="store_true", help="Enable low-VRAM mode (float16)")
     parser.add_argument("--device", default="cuda", help="Compute device")
     args = parser.parse_args()
@@ -214,7 +218,9 @@ def main():
     device = args.device
 
     if device == "cuda" and not torch.cuda.is_available():
-        print(json.dumps({"status": "warning", "message": "CUDA not available, falling back to CPU"}))
+        print(
+            json.dumps({"status": "warning", "message": "CUDA not available, falling back to CPU"})
+        )
         device = "cpu"
 
     try:
@@ -233,19 +239,27 @@ def main():
         run_crm_inference(pipeline, crm_model, image, device, output_path)
 
         elapsed = time.time() - start_time
-        print(json.dumps({
-            "status": "success",
-            "message": f"Mesh saved to {output_path}",
-            "output_path": str(output_path),
-            "elapsed_seconds": round(elapsed, 2),
-        }))
+        print(
+            json.dumps(
+                {
+                    "status": "success",
+                    "message": f"Mesh saved to {output_path}",
+                    "output_path": str(output_path),
+                    "elapsed_seconds": round(elapsed, 2),
+                }
+            )
+        )
 
     except Exception as e:
-        print(json.dumps({
-            "status": "error",
-            "message": str(e),
-            "error_type": type(e).__name__,
-        }))
+        print(
+            json.dumps(
+                {
+                    "status": "error",
+                    "message": str(e),
+                    "error_type": type(e).__name__,
+                }
+            )
+        )
         sys.exit(1)
 
     finally:

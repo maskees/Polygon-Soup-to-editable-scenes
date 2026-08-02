@@ -133,7 +133,6 @@ def main(
             console.print(f"  Valid stages: {list(stage_runners.keys())}")
             raise click.Abort()
 
-
     # Dry run mode — print plan and exit
     if dry_run:
         console.print()
@@ -169,7 +168,7 @@ def main(
         task = progress.add_task("[green]Running pipeline...", total=len(stage_list))
         for idx in stage_list:
             name, runner = stage_runners[idx]
-            console.print(f"\n[bold cyan]━━━ Stage {idx}: {name} ━━━[/]")
+            console.print(f"\n[bold cyan]--- Stage {idx}: {name} ---[/]")
 
             stage_start = time.time()
             try:
@@ -177,11 +176,11 @@ def main(
                 elapsed = time.time() - stage_start
                 stage_timings[idx] = elapsed
                 completed_stages.append(idx)
-                console.print(f"[green]  ✓ Stage {idx} complete ({elapsed:.1f}s)[/]")
+                console.print(f"[green]  [OK] Stage {idx} complete ({elapsed:.1f}s)[/]")
             except Exception as e:
                 elapsed = time.time() - stage_start
                 stage_timings[idx] = elapsed
-                console.print(f"[bold red]  ✗ Stage {idx} failed after {elapsed:.1f}s: {e}[/]")
+                console.print(f"[bold red]  [FAIL] Stage {idx} failed after {elapsed:.1f}s: {e}[/]")
 
                 if verbose:
                     import traceback

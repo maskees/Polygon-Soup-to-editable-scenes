@@ -93,7 +93,7 @@ def retopologize_with_bpy(input_path: Path, output_path: Path, target_faces: int
         bpy.ops.import_scene.obj(filepath=str(input_path))
 
     # Select the imported object
-    selected_objects = [obj for obj in bpy.context.scene.objects if obj.type == 'MESH']
+    selected_objects = [obj for obj in bpy.context.scene.objects if obj.type == "MESH"]
     if not selected_objects:
         raise RuntimeError("No mesh object was imported into Blender scene.")
 
