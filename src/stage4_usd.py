@@ -156,15 +156,12 @@ def create_usd_scene(
         label = labels[i] if labels else f"part_{i:03d}"
         color = colors[i] if colors else PART_COLORS[i % len(PART_COLORS)]
 
-        # Load mesh
-        mesh = trimesh.load(str(mesh_path), force="mesh")
-
         # Prim path
         safe_label = label.replace(" ", "_").replace("-", "_")
         prim_path = f"{root_path}/Part_{i:03d}_{safe_label}"
 
         # Add mesh prim
-        usd_mesh = add_mesh_prim(stage, mesh, prim_path, label)
+        usd_mesh = add_mesh_prim(stage, mesh_path, prim_path, label)
 
         # Create and assign material
         mat_path = f"{materials_path}/Mat_{safe_label}"
@@ -173,7 +170,7 @@ def create_usd_scene(
         # Set visibility as toggleable
         set_visibility_toggleable(usd_mesh)
 
-        logger.info(f"  Added prim: {prim_path} ({len(mesh.faces)} faces)")
+        logger.info(f"  Added prim: {prim_path}")
 
     # Save
     stage.GetRootLayer().Save()
@@ -184,19 +181,19 @@ def create_usd_scene(
 
 def add_mesh_prim(
     stage: "Usd.Stage",
-    mesh: "trimesh.Trimesh",
+    mesh_or_path: typing.Union["trimesh.Trimesh", Path, str],
     prim_path: str,
     label: str,
 ) -> "UsdGeom.Mesh":
     """
-    Add a single Trimesh mesh as a USD Mesh prim.
+    Add a single mesh as a USD Mesh prim, preserving quad (4-sided) topology when present.
 
     Parameters
     ----------
     stage : Usd.Stage
         USD stage to add the prim to.
-    mesh : trimesh.Trimesh
-        Mesh geometry.
+    mesh_or_path : trimesh.Trimesh | Path | str
+        Mesh geometry object or path to .obj file.
     prim_path : str
         USD path for this prim (e.g., '/Root_Scene/Part_000_head').
     label : str
@@ -207,29 +204,34 @@ def add_mesh_prim(
     UsdGeom.Mesh
         The created USD mesh prim.
     """
+    import trimesh
     from pxr import Gf, UsdGeom, Vt
+
+    from src.utils.mesh_utils import load_raw_obj_faces_and_vertices
 
     usd_mesh = UsdGeom.Mesh.Define(stage, prim_path)
 
-    # Set vertices (points)
-    points = [Gf.Vec3f(*v) for v in mesh.vertices.tolist()]
-    usd_mesh.GetPointsAttr().Set(Vt.Vec3fArray(points))
+    if isinstance(mesh_or_path, (Path, str)) and str(mesh_or_path).endswith(".obj"):
+        vertices_raw, face_counts, face_indices = load_raw_obj_faces_and_vertices(mesh_or_path)
+        points = [Gf.Vec3f(*v) for v in vertices_raw]
+        usd_mesh.GetPointsAttr().Set(Vt.Vec3fArray(points))
+        usd_mesh.GetFaceVertexCountsAttr().Set(Vt.IntArray(face_counts))
+        usd_mesh.GetFaceVertexIndicesAttr().Set(Vt.IntArray(face_indices))
+    else:
+        mesh = mesh_or_path if isinstance(mesh_or_path, trimesh.Trimesh) else trimesh.load(str(mesh_or_path), force="mesh")
+        points = [Gf.Vec3f(*v) for v in mesh.vertices.tolist()]
+        usd_mesh.GetPointsAttr().Set(Vt.Vec3fArray(points))
+        face_vertex_counts = [3] * len(mesh.faces)
+        usd_mesh.GetFaceVertexCountsAttr().Set(Vt.IntArray(face_vertex_counts))
+        face_vertex_indices = mesh.faces.flatten().tolist()
+        usd_mesh.GetFaceVertexIndicesAttr().Set(Vt.IntArray(face_vertex_indices))
 
-    # Set face topology
-    # All faces are triangles (3 vertices each)
-    face_vertex_counts = [3] * len(mesh.faces)
-    usd_mesh.GetFaceVertexCountsAttr().Set(Vt.IntArray(face_vertex_counts))
+        if mesh.vertex_normals is not None and len(mesh.vertex_normals) > 0:
+            normals = [Gf.Vec3f(*n) for n in mesh.vertex_normals.tolist()]
+            usd_mesh.GetNormalsAttr().Set(Vt.Vec3fArray(normals))
+            usd_mesh.SetNormalsInterpolation(UsdGeom.Tokens.vertex)
 
-    face_vertex_indices = mesh.faces.flatten().tolist()
-    usd_mesh.GetFaceVertexIndicesAttr().Set(Vt.IntArray(face_vertex_indices))
-
-    # Set vertex normals
-    if mesh.vertex_normals is not None and len(mesh.vertex_normals) > 0:
-        normals = [Gf.Vec3f(*n) for n in mesh.vertex_normals.tolist()]
-        usd_mesh.GetNormalsAttr().Set(Vt.Vec3fArray(normals))
-        usd_mesh.SetNormalsInterpolation(UsdGeom.Tokens.vertex)
-
-    # Set subdivision scheme to none (we want exact mesh, no subdivision)
+    # Set subdivision scheme to none (exact mesh, no subdivision)
     usd_mesh.GetSubdivisionSchemeAttr().Set("none")
 
     # Add semantic label as custom data
@@ -237,6 +239,7 @@ def add_mesh_prim(
     prim.SetCustomDataByKey("semantic_label", label)
 
     return usd_mesh
+
 
 
 def assign_preview_material(

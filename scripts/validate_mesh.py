@@ -30,8 +30,8 @@ def validate_mesh(mesh_path: Path, strict: bool = False) -> dict:
     dict
         Quality report with metrics and pass/fail flags.
     """
-    import trimesh
     import numpy as np
+    import trimesh
 
     mesh = trimesh.load(str(mesh_path), force="mesh")
 
@@ -161,18 +161,18 @@ def print_report(report: dict, use_json: bool = False):
         print(f"  Volume:   {metrics['volume']}")
 
     bb = metrics["bounding_box"]
-    print(f"\n  Bounding Box:")
+    print("\n  Bounding Box:")
     print(f"    Min: ({bb['min'][0]:.3f}, {bb['min'][1]:.3f}, {bb['min'][2]:.3f})")
     print(f"    Max: ({bb['max'][0]:.3f}, {bb['max'][1]:.3f}, {bb['max'][2]:.3f})")
     print(f"    Extents: ({bb['extents'][0]:.3f}, {bb['extents'][1]:.3f}, {bb['extents'][2]:.3f})")
 
-    print(f"\n  Checks:")
+    print("\n  Checks:")
     for check, passed in report["checks"].items():
         status = "✓" if passed else "✗"
         print(f"    {status} {check}")
 
     if report["warnings"]:
-        print(f"\n  Warnings:")
+        print("\n  Warnings:")
         for w in report["warnings"]:
             print(f"    ⚠ {w}")
 

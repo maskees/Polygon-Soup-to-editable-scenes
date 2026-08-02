@@ -41,8 +41,8 @@ console = Console()
     "--stages",
     "-s",
     type=str,
-    default="0,1,2,3,4",
-    help="Comma-separated stage indices to run (e.g., '0,1,2')",
+    default="0,1,2,2b,3,4",
+    help="Comma-separated stage indices to run (e.g., '0,1,2,2b,3,4')",
 )
 @click.option(
     "--backend",
@@ -101,45 +101,38 @@ def main(
     from src.stage0_ingest import run_ingestion
     from src.stage1_segment import run_segmentation
     from src.stage2_reconstruct import run_reconstruction
+    from src.stage2b_retopologize import run_retopologize
     from src.stage3_partition import run_partition
     from src.stage4_usd import run_usd_export
-    from src.utils.gpu_utils import clear_gpu_cache, log_gpu_status
+    from src.utils.gpu_utils import clear_gpu_cache
 
     # Load configuration
     cfg = load_config(config, low_vram=low_vram)
-    stage_list = [int(s.strip()) for s in stages.split(",")]
+    stage_list_raw = [s.strip() for s in stages.split(",")]
     input_dir = Path(input)
     output_dir = Path(output)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Stage registry
     stage_runners = {
-        0: ("Image Ingestion", run_ingestion),
-        1: ("2D Segmentation (SAM 2)", run_segmentation),
-        2: ("3D Reconstruction", run_reconstruction),
-        3: ("Semantic Partitioning (SAMPart3D)", run_partition),
-        4: ("USD Export", run_usd_export),
+        "0": ("Image Ingestion", run_ingestion),
+        "1": ("2D Segmentation (SAM 2)", run_segmentation),
+        "2": ("3D Reconstruction", run_reconstruction),
+        "2b": ("Quad Retopology (bpy)", run_retopologize),
+        "5": ("Quad Retopology (bpy)", run_retopologize),
+        "3": ("Semantic Partitioning (SAMPart3D)", run_partition),
+        "4": ("USD Export", run_usd_export),
     }
 
-    # Print header
-    console.rule("[bold blue]Polygon Soup → Editable Scenes Pipeline[/]")
-    console.print(f"  Input:      {input_dir}")
-    console.print(f"  Output:     {output_dir}")
-    console.print(f"  Backend:    {backend}")
-    console.print(f"  Stages:     {stage_list}")
-    console.print(f"  Low VRAM:   {low_vram}")
-    console.print(f"  Verbose:    {verbose}")
-    console.print(f"  Config:     {config}")
-    console.print(f"  Skip exist: {skip_existing}")
-    console.print()
-    log_gpu_status()
-
-    # Validate stage list
-    for idx in stage_list:
-        if idx not in stage_runners:
-            console.print(f"[bold red]Unknown stage index: {idx}[/]")
+    stage_list = []
+    for s in stage_list_raw:
+        if s in stage_runners:
+            stage_list.append(s)
+        else:
+            console.print(f"[bold red]Unknown stage index: {s}[/]")
             console.print(f"  Valid stages: {list(stage_runners.keys())}")
             raise click.Abort()
+
 
     # Dry run mode — print plan and exit
     if dry_run:

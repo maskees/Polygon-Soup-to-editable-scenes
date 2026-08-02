@@ -14,9 +14,7 @@ Usage (called by stage2_reconstruct.py, not directly):
 
 import argparse
 import json
-import os
 import sys
-import tempfile
 import time
 from pathlib import Path
 
@@ -43,10 +41,9 @@ def load_crm_pipeline(checkpoint_dir: Path, device: str, dtype):
         (pipeline, crm_model) ready for inference.
     """
     import torch
-    from omegaconf import OmegaConf
     from huggingface_hub import hf_hub_download
-
     from model import CRM
+    from omegaconf import OmegaConf
     from pipelines import TwoStagePipeline
 
     # Load CRM reconstruction model
@@ -118,7 +115,6 @@ def preprocess_image(image_path: Path):
     and background removed (alpha channel as mask).
     """
     from PIL import Image
-    import numpy as np
 
     img = Image.open(str(image_path)).convert("RGBA")
 
@@ -147,9 +143,8 @@ def run_crm_inference(pipeline, crm_model, image, device, output_path: Path):
     2. Generate Canonical Coordinate Maps (CCM diffusion)
     3. Reconstruct mesh via FlexiCubes
     """
-    import torch
     import numpy as np
-
+    import torch
     from inference import generate3d
 
     print(json.dumps({"status": "stage1", "message": "Generating multi-view images..."}))

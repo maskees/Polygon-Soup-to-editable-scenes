@@ -89,3 +89,45 @@ def colorize_by_labels(
 
     mesh.visual.face_colors = face_colors
     return mesh
+
+
+def load_raw_obj_faces_and_vertices(path: Path | str) -> tuple[list[list[float]], list[int], list[int]]:
+    """
+    Parse OBJ file to extract raw vertices, face_vertex_counts, and face_vertex_indices.
+    This preserves quad (4-sided) or N-gon topology without triangulating.
+
+    Returns
+    -------
+    tuple[list[list[float]], list[int], list[int]]
+        - vertices: list of [x, y, z]
+        - face_vertex_counts: list of vertex counts per face (e.g., [4, 4, 4, ...])
+        - face_vertex_indices: flattened list of zero-based vertex indices
+    """
+    vertices = []
+    face_counts = []
+    face_indices = []
+
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = line.split()
+            if parts[0] == "v":
+                vertices.append([float(parts[1]), float(parts[2]), float(parts[3])])
+            elif parts[0] == "f":
+                v_indices = []
+                for p in parts[1:]:
+                    # f v1/vt1/vn1 v2/vt2/vn2 ...
+                    v_idx = int(p.split("/")[0])
+                    # OBJ indices are 1-based (or negative for relative)
+                    if v_idx < 0:
+                        v_idx = len(vertices) + v_idx
+                    else:
+                        v_idx = v_idx - 1
+                    v_indices.append(v_idx)
+                face_counts.append(len(v_indices))
+                face_indices.extend(v_indices)
+
+    return vertices, face_counts, face_indices
+

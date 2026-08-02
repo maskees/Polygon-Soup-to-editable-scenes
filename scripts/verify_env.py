@@ -128,7 +128,7 @@ def main():
         print(f"  ✓  GPU:                {cuda_info['device_name']}")
         print(f"  ✓  VRAM:               {cuda_info['vram_gb']} GB")
         if cuda_info["vram_gb"] and cuda_info["vram_gb"] < 8.0:
-            print(f"  ⚠  Low VRAM — use --low-vram flag when running pipeline")
+            print("  ⚠  Low VRAM — use --low-vram flag when running pipeline")
     else:
         print("  ⚠  CUDA not available — pipeline will run on CPU (slow)")
         all_ok = False

@@ -1,12 +1,12 @@
-import os
+import logging
 import shutil
 import subprocess
 from pathlib import Path
-from fastapi import FastAPI, UploadFile, File, HTTPException, Form
+
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
-import logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -42,12 +42,12 @@ async def reconstruct(
     Routes to CRM for single mode, Unique3D for multi mode.
     """
     logger.info(f"Received request in mode: {mode}")
-    
+
     # 1. Prepare directories
     if INPUT_DIR.exists():
         shutil.rmtree(INPUT_DIR)
     INPUT_DIR.mkdir(parents=True, exist_ok=True)
-    
+
     if OUTPUT_DIR.exists():
         shutil.rmtree(OUTPUT_DIR)
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -59,7 +59,7 @@ async def reconstruct(
         front_path = INPUT_DIR / "front.png"
         with open(front_path, "wb") as f:
             f.write(await image.read())
-        # For CRM, we just duplicate it to satisfy the 4-file check in stage0, 
+        # For CRM, we just duplicate it to satisfy the 4-file check in stage0,
         # but CRM will only use front.png in stage2.
         for view in ["back.png", "left.png", "right.png"]:
             shutil.copy(front_path, INPUT_DIR / view)
@@ -79,13 +79,13 @@ async def reconstruct(
         "--output", str(OUTPUT_DIR),
         "--backend", backend
     ]
-    
+
     logger.info(f"Running pipeline: {' '.join(cmd)}")
-    
+
     try:
         # Timeout 30 minutes for real pipeline
         process = subprocess.run(cmd, cwd=str(PROJECT_ROOT), capture_output=True, text=True, timeout=1800)
-        
+
         if process.returncode != 0:
             logger.error(f"Pipeline failed: {process.stderr}")
             return JSONResponse(
@@ -95,13 +95,13 @@ async def reconstruct(
                     "details": process.stderr[-500:],
                 }
             )
-            
+
         usd_file = OUTPUT_DIR / "scene_y_up.glb"
         if not usd_file.exists():
             return JSONResponse(status_code=500, content={"error": "Pipeline succeeded but output GLB not found."})
-            
+
         return {"status": "success", "message": "Reconstruction complete", "download_url": "/api/download"}
-        
+
     except subprocess.TimeoutExpired:
         return JSONResponse(status_code=504, content={"error": "Pipeline execution timed out."})
     except Exception as e:

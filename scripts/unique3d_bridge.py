@@ -15,7 +15,6 @@ Usage (called by stage2_reconstruct.py, not directly):
 
 import argparse
 import json
-import os
 import sys
 import time
 from pathlib import Path
@@ -127,7 +126,6 @@ def run_unique3d_inference(pipeline, images, output_path: Path, device: str):
         Compute device.
     """
     import torch
-    import numpy as np
 
     print(json.dumps({"status": "inference", "message": "Running Unique3D reconstruction..."}))
 

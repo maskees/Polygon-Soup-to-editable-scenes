@@ -1,7 +1,8 @@
-import maya.cmds as cmds
-import maya.mel as mel
-import time
 import os
+import time
+
+import maya.cmds as cmds
+
 
 def test_usd_import(usda_path):
     """
@@ -45,7 +46,7 @@ def test_usd_import(usda_path):
 
     # Orbit camera slightly each frame
     camera = "persp"
-    
+
     while (time.time() - start_time) < duration:
         cmds.orbit(camera, horizontalAngle=1.0, pivotPoint=(0, 0, 0))
         cmds.refresh()
