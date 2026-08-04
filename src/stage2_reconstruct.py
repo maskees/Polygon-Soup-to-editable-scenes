@@ -310,15 +310,19 @@ def _build_conda_command(
     list[str]
         Command list suitable for subprocess.run().
     """
-    cmd = [
-        "conda",
-        "run",
-        "-n",
-        conda_env,
-        "--no-capture-output",
-        "python",
-        str(script),
-    ]
+    if conda_env and conda_env.strip():
+        cmd = [
+            "conda",
+            "run",
+            "-n",
+            conda_env,
+            "--no-capture-output",
+            "python",
+            str(script),
+        ]
+    else:
+        import sys
+        cmd = [sys.executable, str(script)]
     cmd.extend(args)
 
     if low_vram:

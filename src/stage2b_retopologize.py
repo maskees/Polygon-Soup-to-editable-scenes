@@ -44,7 +44,7 @@ def run_retopologize(context: dict) -> dict:
         context["monolithic_mesh"] = quad_mesh_path
         return context
 
-    target_quads = getattr(cfg, "target_quad_count", 10000)
+    target_quads = cfg.target_quad_count
     logger.info(f"Retopologizing mesh to ~{target_quads} quads using Quadriflow...")
 
     try:

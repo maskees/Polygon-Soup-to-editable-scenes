@@ -28,8 +28,8 @@ class PipelineConfig:
     required_views: list[str] = field(default_factory=lambda: ["front", "back", "left", "right"])
 
     # Segmentation
-    sam2_checkpoint: str = "checkpoints/sam2/sam2_hiera_large.pt"
-    sam2_model_cfg: str = "sam2_hiera_l.yaml"
+    sam2_checkpoint: str = "checkpoints/sam2/sam2.1_hiera_large.pt"
+    sam2_model_cfg: str = "configs/sam2.1/sam2.1_hiera_l.yaml"
     use_rembg_fallback: bool = False
     mask_morph_kernel_size: int = 5
     cross_view_iou_threshold: float = 0.7
@@ -38,6 +38,7 @@ class PipelineConfig:
     crm_checkpoint_dir: str = "checkpoints/crm"
     unique3d_checkpoint_dir: str = "checkpoints/unique3d"
     target_face_count: int = 50000
+    target_quad_count: int = 10000
     mesh_smoothing_iterations: int = 3
     crm_conda_env: str = "crm"
     unique3d_conda_env: str = "unique3d"

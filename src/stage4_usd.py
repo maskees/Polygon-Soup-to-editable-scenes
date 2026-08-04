@@ -206,7 +206,7 @@ def add_mesh_prim(
     import trimesh
     from pxr import Gf, UsdGeom, Vt
 
-    from src.utils.mesh_utils import load_raw_obj_faces_and_vertices
+    from src.utils.mesh_utils import compute_obj_normals, load_raw_obj_faces_and_vertices
 
     usd_mesh = UsdGeom.Mesh.Define(stage, prim_path)
 
@@ -216,6 +216,12 @@ def add_mesh_prim(
         usd_mesh.GetPointsAttr().Set(Vt.Vec3fArray(points))
         usd_mesh.GetFaceVertexCountsAttr().Set(Vt.IntArray(face_counts))
         usd_mesh.GetFaceVertexIndicesAttr().Set(Vt.IntArray(face_indices))
+
+        # Compute and set per-vertex normals for proper smooth shading in Maya
+        vertex_normals = compute_obj_normals(vertices_raw, face_counts, face_indices)
+        normals = [Gf.Vec3f(*n) for n in vertex_normals]
+        usd_mesh.GetNormalsAttr().Set(Vt.Vec3fArray(normals))
+        usd_mesh.SetNormalsInterpolation(UsdGeom.Tokens.vertex)
     else:
         mesh = (
             mesh_or_path

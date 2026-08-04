@@ -7,8 +7,8 @@
 target_image_size: 512
 
 # Segmentation (SAM 2)
-sam2_checkpoint: "checkpoints/sam2/sam2_hiera_large.pt"
-sam2_model_cfg: "sam2_hiera_l.yaml"
+sam2_checkpoint: "checkpoints/sam2/sam2.1_hiera_large.pt"
+sam2_model_cfg: "configs/sam2.1/sam2.1_hiera_l.yaml"
 use_rembg_fallback: false
 mask_morph_kernel_size: 5
 cross_view_iou_threshold: 0.7
@@ -17,9 +17,10 @@ cross_view_iou_threshold: 0.7
 crm_checkpoint_dir: "checkpoints/crm"
 unique3d_checkpoint_dir: "checkpoints/unique3d"
 target_face_count: 50000
+target_quad_count: 10000
 mesh_smoothing_iterations: 3
-crm_conda_env: "crm"
-unique3d_conda_env: "unique3d"
+crm_conda_env: ""
+unique3d_conda_env: ""
 reconstruction_timeout: 300
 use_pymeshlab_postprocess: true
 

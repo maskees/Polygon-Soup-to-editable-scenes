@@ -85,6 +85,9 @@ def run_partition(context: dict) -> dict:
     # Load monolithic mesh
     mesh_path = context["monolithic_mesh"]
     logger.info(f"Loading monolithic mesh from: {mesh_path}")
+    # trimesh.load(force="mesh") triangulates quads — this is fine for internal
+    # operations (sampling, adjacency, rendering) but the final sub-mesh export
+    # must preserve original quad topology when present.
     mesh = trimesh.load(str(mesh_path), force="mesh")
 
     # Step 1: Sample point cloud from mesh surface
@@ -151,7 +154,7 @@ def run_partition(context: dict) -> dict:
         min_faces=cfg.min_part_faces,
     )
 
-    # Step 9: Extract sub-meshes
+    # Step 9: Extract sub-meshes (preserving quad topology if present)
     unique_labels = np.unique(face_labels)
     logger.info(f"Extracting {len(unique_labels)} sub-meshes...")
 
@@ -159,6 +162,7 @@ def run_partition(context: dict) -> dict:
         mesh=mesh,
         face_labels=face_labels,
         output_dir=output_dir,
+        original_mesh_path=Path(mesh_path),
     )
 
     # Generate labels and colors
@@ -254,8 +258,9 @@ def render_multiview(
         transforms.append(camera_transform)
 
         try:
-            # Create scene and render
+            # Create scene and set camera to the computed viewpoint
             scene = mesh.scene()
+            scene.camera_transform = camera_transform
             rendered = scene.save_image(resolution=(resolution, resolution))
             import io
 
@@ -674,7 +679,7 @@ def _spectral_cluster(
     np.ndarray
         (N,) cluster labels.
     """
-    from scipy.sparse import csr_matrix
+    from scipy.sparse import csr_matrix, eye as sparse_eye
     from scipy.sparse.linalg import eigsh
     from scipy.spatial import cKDTree
 
@@ -709,14 +714,14 @@ def _spectral_cluster(
     affinity = csr_matrix((weights, (rows, cols)), shape=(n_sub, n_sub))
     affinity = (affinity + affinity.T) / 2  # Symmetrize
 
-    # Normalized graph Laplacian
+    # Normalized graph Laplacian (using sparse identity to save memory)
     degree = np.array(affinity.sum(axis=1)).flatten()
     degree_inv_sqrt = np.where(degree > 0, 1.0 / np.sqrt(degree), 0.0)
     d_inv_sqrt = csr_matrix(
         (degree_inv_sqrt, (np.arange(n_sub), np.arange(n_sub))),
         shape=(n_sub, n_sub),
     )
-    laplacian = np.eye(n_sub) - (d_inv_sqrt @ affinity @ d_inv_sqrt)
+    laplacian = sparse_eye(n_sub) - (d_inv_sqrt @ affinity @ d_inv_sqrt)
 
     # Compute bottom eigenvectors (skip the trivial first one)
     n_eigenvectors = min(n_parts + 1, n_sub - 1)
@@ -938,25 +943,60 @@ def extract_submeshes(
     mesh: "trimesh.Trimesh",
     face_labels: np.ndarray,
     output_dir: Path,
+    original_mesh_path: Path | None = None,
 ) -> list[Path]:
     """
     Split mesh into sub-meshes by face label and save each as .obj.
 
+    When the original mesh is a quad OBJ (from Stage 2b retopology),
+    this function preserves quad topology by reading the original file
+    directly and mapping triangle-based face labels back to original
+    quad faces. This is critical for Maya editability.
+
     Parameters
     ----------
     mesh : trimesh.Trimesh
-        Full monolithic mesh.
+        Full monolithic mesh (triangulated by trimesh).
     face_labels : np.ndarray
-        (N_faces,) label for each face.
+        (N_faces,) label for each triangulated face.
     output_dir : Path
         Directory to save sub-mesh .obj files.
+    original_mesh_path : Path | None
+        Path to the original .obj file. Used for quad-preserving extraction.
 
     Returns
     -------
     list[Path]
         Ordered list of paths to saved sub-mesh files.
     """
+    from src.utils.mesh_utils import is_quad_obj
 
+    # Check if the original mesh is quad topology
+    use_quad_path = (
+        original_mesh_path is not None
+        and original_mesh_path.suffix == ".obj"
+        and original_mesh_path.exists()
+        and is_quad_obj(original_mesh_path)
+    )
+
+    if use_quad_path:
+        logger.info("  Detected quad topology — preserving quads in sub-meshes")
+        return _extract_submeshes_quad(
+            face_labels=face_labels,
+            original_mesh_path=original_mesh_path,
+            output_dir=output_dir,
+            trimesh_mesh=mesh,
+        )
+    else:
+        return _extract_submeshes_tri(mesh, face_labels, output_dir)
+
+
+def _extract_submeshes_tri(
+    mesh: "trimesh.Trimesh",
+    face_labels: np.ndarray,
+    output_dir: Path,
+) -> list[Path]:
+    """Extract sub-meshes using trimesh (triangle topology)."""
     paths = []
     unique_labels = sorted(np.unique(face_labels))
 
@@ -979,5 +1019,129 @@ def extract_submeshes(
         filepath = output_dir / filename
         sub_mesh.export(str(filepath))
         paths.append(filepath)
+
+    return paths
+
+
+def _extract_submeshes_quad(
+    face_labels: np.ndarray,
+    original_mesh_path: Path,
+    output_dir: Path,
+    trimesh_mesh: "trimesh.Trimesh",
+) -> list[Path]:
+    """
+    Extract sub-meshes preserving quad topology from the original OBJ.
+
+    trimesh triangulates quads into 2 triangles each. This function:
+    1. Reads the original quad OBJ with the raw parser
+    2. Builds a mapping from trimesh triangle faces → original quad faces
+    3. Transfers triangle-level labels to quad-level labels (majority vote)
+    4. Writes per-part OBJ files with original quad faces
+
+    Parameters
+    ----------
+    face_labels : np.ndarray
+        (N_tri_faces,) labels from the triangulated mesh.
+    original_mesh_path : Path
+        Path to the original quad .obj file.
+    output_dir : Path
+        Output directory for sub-mesh files.
+    trimesh_mesh : trimesh.Trimesh
+        The triangulated mesh (used for vertex correspondence).
+    """
+    from collections import Counter
+
+    from src.utils.mesh_utils import load_raw_obj_faces_and_vertices
+
+    # Read original quad OBJ
+    orig_vertices, orig_face_counts, orig_face_indices = load_raw_obj_faces_and_vertices(
+        original_mesh_path
+    )
+
+    # Build a mapping from trimesh triangles to original faces.
+    # When trimesh triangulates a quad (v0,v1,v2,v3), it produces
+    # two triangles: (v0,v1,v2) and (v0,v2,v3). We map each triangle
+    # back to its source quad by tracking the index offset.
+    tri_to_orig = []  # tri_to_orig[tri_idx] = original face index
+    idx_offset = 0
+    for orig_face_idx, count in enumerate(orig_face_counts):
+        # A face with N vertices produces N-2 triangles via fan triangulation
+        n_tris = max(count - 2, 1)
+        for _ in range(n_tris):
+            tri_to_orig.append(orig_face_idx)
+        idx_offset += count
+
+    n_orig_faces = len(orig_face_counts)
+
+    # If the mapping length doesn't match trimesh face count, fall back
+    if len(tri_to_orig) != len(face_labels):
+        logger.warning(
+            f"  Tri-to-quad mapping mismatch ({len(tri_to_orig)} vs {len(face_labels)} tris) "
+            "— falling back to triangle extraction"
+        )
+        return _extract_submeshes_tri(trimesh_mesh, face_labels, output_dir)
+
+    # Transfer triangle labels to original (quad) faces via majority vote
+    orig_face_label_votes: dict[int, Counter] = {}
+    for tri_idx, tri_label in enumerate(face_labels):
+        orig_idx = tri_to_orig[tri_idx]
+        if orig_idx not in orig_face_label_votes:
+            orig_face_label_votes[orig_idx] = Counter()
+        orig_face_label_votes[orig_idx][tri_label] += 1
+
+    orig_face_labels = np.zeros(n_orig_faces, dtype=np.int32)
+    for orig_idx, votes in orig_face_label_votes.items():
+        orig_face_labels[orig_idx] = votes.most_common(1)[0][0]
+
+    # Write per-part OBJ files preserving quad topology
+    unique_labels = sorted(np.unique(orig_face_labels))
+    paths = []
+
+    for part_i, label in enumerate(unique_labels):
+        part_face_mask = orig_face_labels == label
+        part_face_indices_list = np.where(part_face_mask)[0]
+
+        if len(part_face_indices_list) == 0:
+            continue
+
+        # Collect vertices used by these faces and build remapping
+        used_vert_set: set[int] = set()
+        idx_offset = 0
+        face_data = []  # list of (count, [vertex_indices])
+        fi_offset = 0
+        for orig_fi, count in enumerate(orig_face_counts):
+            verts_for_face = orig_face_indices[fi_offset : fi_offset + count]
+            if part_face_mask[orig_fi]:
+                face_data.append((count, verts_for_face))
+                used_vert_set.update(verts_for_face)
+            fi_offset += count
+
+        # Build vertex remapping (old index → new compact index)
+        sorted_verts = sorted(used_vert_set)
+        vert_remap = {old: new for new, old in enumerate(sorted_verts)}
+
+        # Write OBJ
+        filename = f"part_{part_i:03d}.obj"
+        filepath = output_dir / filename
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(f"# Part {part_i}: {label}\n")
+            f.write(f"# Quad-preserving export from pipeline\n")
+
+            # Write vertices
+            for vi in sorted_verts:
+                v = orig_vertices[vi]
+                f.write(f"v {v[0]:.8f} {v[1]:.8f} {v[2]:.8f}\n")
+
+            # Write faces (1-indexed)
+            for count, vert_indices in face_data:
+                remapped = [vert_remap[vi] + 1 for vi in vert_indices]  # OBJ is 1-based
+                f.write("f " + " ".join(str(v) for v in remapped) + "\n")
+
+        paths.append(filepath)
+        logger.info(
+            f"  Part {part_i}: {len(face_data)} faces "
+            f"({sum(1 for c, _ in face_data if c == 4)} quads, "
+            f"{sum(1 for c, _ in face_data if c == 3)} tris)"
+        )
 
     return paths

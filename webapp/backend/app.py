@@ -23,6 +23,7 @@ app.add_middleware(
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+VENV_PYTHON = PROJECT_ROOT / ".venv" / "Scripts" / "python.exe"
 INPUT_DIR = PROJECT_ROOT / "data" / "input" / "web_session"
 OUTPUT_DIR = PROJECT_ROOT / "data" / "output" / "web_session"
 INTERMEDIATE_DIR = PROJECT_ROOT / "data" / "intermediate" / "web_session"
@@ -82,9 +83,10 @@ async def reconstruct(
                 f.write(await file_obj.read())
         backend = "unique3d"
 
-    # 3. Invoke the real pipeline
+    # 3. Invoke the real pipeline using the project's venv Python
+    python_exe = str(VENV_PYTHON) if VENV_PYTHON.exists() else "python"
     cmd = [
-        "python",
+        python_exe,
         str(PROJECT_ROOT / "main.py"),
         "--input",
         str(INPUT_DIR),
@@ -92,6 +94,7 @@ async def reconstruct(
         str(OUTPUT_DIR),
         "--backend",
         backend,
+        "--verbose",
     ]
 
     logger.info(f"Running pipeline: {' '.join(cmd)}")
@@ -104,18 +107,29 @@ async def reconstruct(
 
         if process.returncode != 0:
             logger.error(f"Pipeline failed: {process.stderr}")
+            # Extract the most useful error info from stderr
+            stderr_lines = process.stderr.strip().split("\n") if process.stderr else []
+            # Find the actual exception line
+            error_summary = "Pipeline execution failed"
+            for line in reversed(stderr_lines):
+                line = line.strip()
+                if line and not line.startswith("│") and not line.startswith("─"):
+                    # Look for common error patterns
+                    if "Error" in line or "error" in line or "not installed" in line.lower() or "not found" in line.lower():
+                        error_summary = line
+                        break
             return JSONResponse(
                 status_code=500,
                 content={
-                    "error": "Pipeline execution failed",
-                    "details": process.stderr[-500:],
+                    "error": error_summary,
+                    "details": process.stderr[-1000:] if process.stderr else "(no stderr)",
                 },
             )
 
-        usd_file = OUTPUT_DIR / "scene_y_up.glb"
+        usd_file = OUTPUT_DIR / "usd" / "scene_y_up.usda"
         if not usd_file.exists():
             return JSONResponse(
-                status_code=500, content={"error": "Pipeline succeeded but output GLB not found."}
+                status_code=500, content={"error": "Pipeline succeeded but output USD not found."}
             )
 
         return {
@@ -132,11 +146,11 @@ async def reconstruct(
 
 @app.get("/api/download")
 async def download_result():
-    usd_file = OUTPUT_DIR / "scene_y_up.glb"
+    usd_file = OUTPUT_DIR / "usd" / "scene_y_up.usda"
     if not usd_file.exists():
         raise HTTPException(status_code=404, detail="Result not found")
     return FileResponse(
-        path=usd_file, filename="reconstructed_scene.glb", media_type="model/gltf-binary"
+        path=usd_file, filename="reconstructed_scene.usda", media_type="text/plain"
     )
 
 

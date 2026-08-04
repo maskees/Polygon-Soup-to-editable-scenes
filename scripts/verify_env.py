@@ -78,7 +78,7 @@ def main():
         ("torch", "torch", "2.3.0"),
         ("torchvision", "torchvision", "0.18.0"),
         ("trimesh", "trimesh", "4.4.0"),
-        ("open3d", "open3d", "0.18.0"),
+
         ("opencv-python", "cv2", "4.10.0"),
         ("Pillow", "PIL", "10.4.0"),
         ("numpy", "numpy", "1.26.0"),

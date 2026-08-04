@@ -119,7 +119,6 @@ def main(
         "1": ("2D Segmentation (SAM 2)", run_segmentation),
         "2": ("3D Reconstruction", run_reconstruction),
         "2b": ("Quad Retopology (bpy)", run_retopologize),
-        "5": ("Quad Retopology (bpy)", run_retopologize),
         "3": ("Semantic Partitioning (SAMPart3D)", run_partition),
         "4": ("USD Export", run_usd_export),
     }
@@ -192,9 +191,12 @@ def main(
                     console.print(
                         f"\n[yellow]  Completed stages before failure: {completed_stages}[/]"
                     )
+                    # Use list index for ordering instead of string comparison
+                    failed_pos = stage_list.index(idx)
+                    remaining = stage_list[failed_pos:]
                     console.print(
                         f"  To resume, run with: "
-                        f"--stages {','.join(str(s) for s in stage_list if s >= idx)}"
+                        f"--stages {','.join(remaining)}"
                     )
 
                 raise
