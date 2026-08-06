@@ -89,8 +89,14 @@ console = Console()
     default=False,
     help="Validate config and print plan without executing stages",
 )
+@click.option(
+    "--mesh",
+    type=click.Path(exists=True),
+    default=None,
+    help="Inject a pre-built .obj mesh to bypass Stages 0-2 (for testing Stages 3-4)",
+)
 def main(
-    input, output, stages, backend, up_axis, low_vram, config, skip_existing, verbose, dry_run
+    input, output, stages, backend, up_axis, low_vram, config, skip_existing, verbose, dry_run, mesh
 ):
     """Run the full 3D reconstruction and decomposition pipeline."""
     from src.utils.logging_utils import setup_logging
@@ -157,6 +163,15 @@ def main(
         "cfg": cfg,
         "skip_existing": skip_existing,
     }
+
+    # If --mesh is provided, inject it into context so Stage 3 can run directly
+    if mesh:
+        mesh_path = Path(mesh)
+        console.print(f"[yellow]  Injecting pre-built mesh: {mesh_path}[/]")
+        context["monolithic_mesh"] = mesh_path
+        # Also provide dummy segmented_images to avoid KeyError in skipped stages
+        context["ingested_images"] = {}
+        context["segmented_images"] = {}
 
     # Execute stages
     pipeline_start = time.time()

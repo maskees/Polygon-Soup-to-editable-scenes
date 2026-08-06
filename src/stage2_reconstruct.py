@@ -8,10 +8,11 @@ Input:  4 RGBA images from Stage 1
 Output: Single monolithic .obj mesh (untextured "clay" topology)
 
 Architecture:
-    CRM and Unique3D have incompatible dependencies (CRM: PyTorch 1.13,
-    Unique3D: PyTorch 2.3). We use subprocess isolation — each backend
-    runs in its own conda environment via a bridge script, communicating
-    via filesystem (input images → output mesh) and JSON status on stdout.
+    CRM and Unique3D each have specific dependency requirements (nvdiffrast,
+    diffusers, transformers at pinned versions). We use subprocess isolation —
+    each backend runs in its own conda environment via a bridge script,
+    communicating via filesystem (input images → output mesh) and JSON
+    status on stdout.
 """
 
 import json
@@ -123,9 +124,8 @@ def reconstruct_with_crm(
     """
     Run CRM reconstruction via subprocess isolation.
 
-    CRM requires PyTorch 1.13 + CUDA 11.7, which is incompatible with
-    our project's PyTorch 2.3 + CUDA 12.1 environment. We run CRM in
-    a separate conda environment via a bridge script.
+    CRM runs in a separate conda environment via a bridge script to
+    isolate its specific dependencies (nvdiffrast, diffusers, etc.).
 
     CRM expects a single canonical image and internally generates
     6 orthogonal views. We use the front view as the primary input.

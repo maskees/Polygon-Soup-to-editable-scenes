@@ -31,9 +31,20 @@ def setup_crm_paths():
     return crm_dir
 
 
-def load_crm_pipeline(checkpoint_dir: Path, device: str, dtype):
+def load_crm_pipeline(checkpoint_dir: Path, crm_dir: Path, device: str, dtype):
     """
     Load the CRM two-stage pipeline and reconstruction model.
+
+    Parameters
+    ----------
+    checkpoint_dir : Path
+        Directory with CRM.pth, pixel-diffusion.pth, ccm-diffusion.pth.
+    crm_dir : Path
+        Root of the CRM repo (external/CRM).
+    device : str
+        Compute device.
+    dtype : torch.dtype
+        Data type (float32 or float16).
 
     Returns
     -------
@@ -41,67 +52,56 @@ def load_crm_pipeline(checkpoint_dir: Path, device: str, dtype):
         (pipeline, crm_model) ready for inference.
     """
     import torch
-    from huggingface_hub import hf_hub_download
     from model import CRM
     from omegaconf import OmegaConf
     from pipelines import TwoStagePipeline
 
-    # Load CRM reconstruction model
+    # Load the CRM reconstruction head
     crm_path = checkpoint_dir / "CRM.pth"
     if not crm_path.exists():
-        # Try downloading from HuggingFace
-        print(json.dumps({"status": "downloading", "message": "Downloading CRM checkpoint..."}))
-        crm_path = hf_hub_download(
-            repo_id="Zhengyi/CRM",
-            filename="CRM.pth",
-            local_dir=str(checkpoint_dir),
+        raise FileNotFoundError(
+            f"CRM checkpoint not found at {crm_path}. "
+            "Download from: huggingface-cli download Zhengyi/CRM --local-dir checkpoints/crm"
         )
-        crm_path = Path(crm_path)
 
-    # Load stage configs
-    stage1_config_path = checkpoint_dir / "stage1.yaml"
-    stage2_config_path = checkpoint_dir / "stage2.yaml"
-
-    # Check for config files, download if missing
-    for cfg_name in ["stage1.yaml", "stage2.yaml"]:
-        cfg_path = checkpoint_dir / cfg_name
-        if not cfg_path.exists():
-            hf_hub_download(
-                repo_id="Zhengyi/CRM",
-                filename=cfg_name,
-                local_dir=str(checkpoint_dir),
-            )
-
-    # Load the CRM reconstruction head
-    specs = json.load(open(checkpoint_dir / "specs_objaverse_total.json"))
+    specs_path = crm_dir / "configs" / "specs_objaverse_total.json"
+    specs = json.load(open(specs_path))
     crm_model = CRM(specs).to(device)
-    crm_model.load_state_dict(torch.load(str(crm_path), map_location=device), strict=False)
+    crm_model.load_state_dict(
+        torch.load(str(crm_path), map_location=device), strict=False
+    )
     crm_model = crm_model.to(dtype)
     crm_model.eval()
 
-    # Load the two-stage diffusion pipeline
-    stage1_model_config = OmegaConf.create(
-        {
-            "config": str(checkpoint_dir / "sd-v2-1-diffusers" / "v2-1_512-ema-pruned.yaml"),
-            "resume": str(checkpoint_dir / "pixel-diffusion.ckpt"),
-        }
-    )
-    stage2_model_config = OmegaConf.create(
-        {
-            "config": str(checkpoint_dir / "sd-v2-1-diffusers" / "v2-1_512-ema-pruned.yaml"),
-            "resume": str(checkpoint_dir / "ccm-diffusion.ckpt"),
-        }
-    )
+    # Load the two-stage diffusion pipeline using CRM repo's config files
+    stage1_config = OmegaConf.load(
+        str(crm_dir / "configs" / "nf7_v3_SNR_rd_size_stroke.yaml")
+    ).config
+    stage2_config = OmegaConf.load(
+        str(crm_dir / "configs" / "stage2-v2-snr.yaml")
+    ).config
 
-    # Sampler configs
-    stage1_sampler_config = OmegaConf.load(str(stage1_config_path))
-    stage2_sampler_config = OmegaConf.load(str(stage2_config_path))
+    stage1_sampler_config = stage1_config.sampler
+    stage2_sampler_config = stage2_config.sampler
+    stage1_model_config = stage1_config.models
+    stage2_model_config = stage2_config.models
+
+    # Point checkpoint paths to our local files
+    pixel_path = checkpoint_dir / "pixel-diffusion.pth"
+    ccm_path = checkpoint_dir / "ccm-diffusion.pth"
+    if not pixel_path.exists() or not ccm_path.exists():
+        raise FileNotFoundError(
+            f"Diffusion checkpoints not found in {checkpoint_dir}. "
+            "Expected: pixel-diffusion.pth and ccm-diffusion.pth"
+        )
+    stage1_model_config.resume = str(pixel_path)
+    stage2_model_config.resume = str(ccm_path)
 
     pipeline = TwoStagePipeline(
-        stage1_model_config=stage1_model_config,
-        stage2_model_config=stage2_model_config,
-        stage1_sampler_config=stage1_sampler_config,
-        stage2_sampler_config=stage2_sampler_config,
+        stage1_model_config,
+        stage2_model_config,
+        stage1_sampler_config,
+        stage2_sampler_config,
         device=device,
         dtype=dtype,
     )
@@ -139,57 +139,60 @@ def preprocess_image(image_path: Path):
 def run_crm_inference(pipeline, crm_model, image, device, output_path: Path):
     """
     Run the full CRM inference pipeline.
-
+    
     Steps:
-    1. Generate multi-view images from single input (pixel diffusion)
-    2. Generate Canonical Coordinate Maps (CCM diffusion)
-    3. Reconstruct mesh via FlexiCubes
+    1. Two-stage diffusion: single image → 6-view pixel images + CCMs
+    2. FlexiCubes mesh reconstruction from triplane features
+    3. Export as OBJ
     """
+    import shutil
+
     import numpy as np
     import torch
     from inference import generate3d
 
-    print(json.dumps({"status": "stage1", "message": "Generating multi-view images..."}))
+    print(json.dumps({"status": "diffusion", "message": "Running two-stage diffusion pipeline..."}))
 
-    # Stage 1: Generate 6 orthogonal views from single image
-    stage1_output = pipeline.stage1_sample(image, prompt="3D assets")
+    # Run the full two-stage pipeline (pixel diffusion → CCM diffusion)
+    rt_dict = pipeline(image, scale=5.0, step=50)
+    stage1_images = rt_dict["stage1_images"]
+    stage2_images = rt_dict["stage2_images"]
 
-    print(json.dumps({"status": "stage2", "message": "Generating CCMs..."}))
+    # Concatenate views into single images (CRM's expected format)
+    np_imgs = np.concatenate(stage1_images, 1)  # 6-view pixel image strip
+    np_xyzs = np.concatenate(stage2_images, 1)  # 6-view CCM strip
 
-    # Stage 2: Generate Canonical Coordinate Maps
-    stage2_output = pipeline.stage2_sample(
-        image,
-        stage1_output,
-        prompt="3D assets",
-    )
-
-    # stage2_output contains rgb (6-view color) and ccm (coordinate maps)
-    rgb = np.array(stage2_output["pixel_images"])
-    ccm = np.array(stage2_output["ccm_images"])
-
-    print(json.dumps({"status": "reconstruct", "message": "Running 3D reconstruction..."}))
+    print(json.dumps({"status": "reconstruct", "message": "Running 3D mesh reconstruction..."}))
 
     # Generate 3D mesh using FlexiCubes
-    with torch.no_grad():
-        mesh_output = generate3d(crm_model, rgb, ccm, device)
+    # generate3d returns (glb_path, zip_path)
+    glb_path, zip_path = generate3d(crm_model, np_imgs, np_xyzs, device)
 
-    # Export mesh as OBJ (untextured)
-    if hasattr(mesh_output, "export"):
-        mesh_output.export(str(output_path))
-    else:
-        # mesh_output might be a custom Mesh object from CRM
-        # Export vertices and faces manually
-        vertices = mesh_output.v.detach().cpu().numpy()
-        faces = mesh_output.f.detach().cpu().numpy()
+    # Extract the OBJ from the zip or convert GLB
+    # The zip contains .obj, .mtl, and .png files
+    import zipfile
 
-        with open(str(output_path), "w") as f:
-            for v in vertices:
-                f.write(f"v {v[0]:.6f} {v[1]:.6f} {v[2]:.6f}\n")
-            for face in faces:
-                # OBJ faces are 1-indexed
-                f.write(f"f {face[0] + 1} {face[1] + 1} {face[2] + 1}\n")
+    if zip_path and Path(zip_path).exists():
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            # Find the .obj file inside the zip
+            obj_names = [n for n in zf.namelist() if n.endswith(".obj")]
+            if obj_names:
+                with zf.open(obj_names[0]) as obj_in:
+                    with open(str(output_path), "wb") as obj_out:
+                        obj_out.write(obj_in.read())
+                print(json.dumps({"status": "exported", "message": f"OBJ extracted from CRM output"}))
+                return output_path
 
-    return output_path
+    # Fallback: try to load GLB and re-export as OBJ
+    if glb_path and Path(glb_path).exists():
+        import trimesh
+
+        mesh = trimesh.load(glb_path, file_type="glb", force="mesh")
+        mesh.export(str(output_path))
+        print(json.dumps({"status": "exported", "message": f"OBJ exported from GLB"}))
+        return output_path
+
+    raise RuntimeError("CRM did not produce a valid mesh output")
 
 
 def main():
@@ -225,11 +228,11 @@ def main():
 
     try:
         # Setup paths
-        setup_crm_paths()
+        crm_dir = setup_crm_paths()
 
         # Load pipeline
         print(json.dumps({"status": "loading", "message": "Loading CRM pipeline..."}))
-        pipeline, crm_model = load_crm_pipeline(checkpoint_dir, device, dtype)
+        pipeline, crm_model = load_crm_pipeline(checkpoint_dir, crm_dir, device, dtype)
 
         # Preprocess image
         print(json.dumps({"status": "preprocess", "message": "Preprocessing input image..."}))

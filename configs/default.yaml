@@ -19,7 +19,7 @@ unique3d_checkpoint_dir: "checkpoints/unique3d"
 target_face_count: 50000
 target_quad_count: 10000
 mesh_smoothing_iterations: 3
-crm_conda_env: ""
+crm_conda_env: "crm"
 unique3d_conda_env: ""
 reconstruction_timeout: 300
 use_pymeshlab_postprocess: true
