@@ -109,7 +109,7 @@ def main(
     from src.stage2_reconstruct import run_reconstruction
     from src.stage2b_retopologize import run_retopologize
     from src.stage3_partition import run_partition
-    from src.stage4_usd import run_usd_export
+    from src.stage4_fbx import run_fbx_export
     from src.utils.gpu_utils import clear_gpu_cache
 
     # Load configuration
@@ -126,7 +126,7 @@ def main(
         "2": ("3D Reconstruction", run_reconstruction),
         "2b": ("Quad Retopology (bpy)", run_retopologize),
         "3": ("Semantic Partitioning (SAMPart3D)", run_partition),
-        "4": ("USD Export", run_usd_export),
+        "4": ("FBX Export", run_fbx_export),
     }
 
     stage_list = []

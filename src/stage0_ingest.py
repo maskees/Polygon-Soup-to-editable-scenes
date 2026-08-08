@@ -47,6 +47,22 @@ def run_ingestion(context: dict) -> dict:
     stage_output_dir = Path(output_dir) / "intermediate" / "stage0_ingest"
     stage_output_dir.mkdir(parents=True, exist_ok=True)
 
+    # Check for skip_existing — if all 4 outputs exist, reuse them
+    if context.get("skip_existing"):
+        existing = {}
+        all_exist = True
+        for view in REQUIRED_VIEWS:
+            out_path = stage_output_dir / f"{view}.png"
+            if out_path.exists():
+                existing[view] = out_path
+            else:
+                all_exist = False
+                break
+        if all_exist:
+            logger.info(f"Skipping Stage 0 — outputs already exist in {stage_output_dir}")
+            context["ingested_images"] = existing
+            return context
+
     # Validate input
     image_paths = validate_input_directory(input_dir)
     logger.info(f"Validated {len(image_paths)} input images from {input_dir}")

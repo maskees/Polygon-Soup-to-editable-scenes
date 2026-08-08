@@ -53,10 +53,7 @@ def run_reconstruction(context: dict) -> dict:
     output_dir = Path(context["output_dir"]) / "intermediate" / "stage2_reconstruct"
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    segmented = context["segmented_images"]
-    image_paths = [segmented[v] for v in ["front", "back", "left", "right"]]
-
-    # Check for skip_existing
+    # Check for skip_existing BEFORE accessing segmented_images
     mesh_path = output_dir / "monolithic_mesh.obj"
     if context.get("skip_existing") and mesh_path.exists():
         logger.info(f"Skipping Stage 2 — output exists: {mesh_path}")
@@ -64,6 +61,9 @@ def run_reconstruction(context: dict) -> dict:
         context["monolithic_mesh"] = mesh_path
         context["mesh_quality"] = validate_mesh(mesh)
         return context
+
+    segmented = context["segmented_images"]
+    image_paths = [segmented[v] for v in ["front", "back", "left", "right"]]
 
     # Run reconstruction
     logger.info(f"Running 3D reconstruction with backend: {backend}")
@@ -580,9 +580,9 @@ def postprocess_mesh(
         logger.info(f"  Decimating from {len(mesh.faces)} to {target_faces} faces")
         mesh = _decimate_mesh(mesh, target_faces, use_pymeshlab)
 
-    # 2. Laplacian smoothing
+    # 2. Taubin smoothing (feature-preserving, avoids shrinking/melting details)
     if smoothing_iterations > 0:
-        trimesh.smoothing.filter_laplacian(mesh, iterations=smoothing_iterations)
+        trimesh.smoothing.filter_taubin(mesh, iterations=smoothing_iterations)
 
     # 3. Fix normals
     mesh.fix_normals()
@@ -629,14 +629,24 @@ def _decimate_mesh(
     if use_pymeshlab:
         try:
             import pymeshlab
+            import numpy as np
 
-            ms = pymeshlab.MeshSet()
-            ms.add_mesh(
-                pymeshlab.Mesh(
+            has_colors = hasattr(mesh.visual, "vertex_colors") and mesh.visual.vertex_colors is not None
+            if has_colors:
+                v_colors = (mesh.visual.vertex_colors[:, :4].astype(np.float32) / 255.0)
+                m = pymeshlab.Mesh(
+                    vertex_matrix=mesh.vertices,
+                    face_matrix=mesh.faces,
+                    v_color_matrix=v_colors,
+                )
+            else:
+                m = pymeshlab.Mesh(
                     vertex_matrix=mesh.vertices,
                     face_matrix=mesh.faces,
                 )
-            )
+
+            ms = pymeshlab.MeshSet()
+            ms.add_mesh(m)
             ms.meshing_decimation_quadric_edge_collapse(
                 targetfacenum=target_faces,
                 qualitythr=0.3,
@@ -645,12 +655,19 @@ def _decimate_mesh(
                 optimalplacement=True,
             )
             result = ms.current_mesh()
+
+            if has_colors and result.has_vertex_color():
+                new_v_colors = (result.vertex_color_matrix() * 255.0).astype(np.uint8)
+            else:
+                new_v_colors = None
+
             mesh = trimesh.Trimesh(
                 vertices=result.vertex_matrix(),
                 faces=result.face_matrix(),
+                vertex_colors=new_v_colors,
                 process=True,
             )
-            logger.info(f"  Decimated via PyMeshLab: {len(mesh.faces)} faces")
+            logger.info(f"  Decimated via PyMeshLab: {len(mesh.faces)} faces (preserved vertex colors)")
             return mesh
         except ImportError:
             logger.warning("  PyMeshLab not installed — falling back to trimesh decimation")

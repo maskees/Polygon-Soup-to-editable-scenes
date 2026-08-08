@@ -1006,8 +1006,23 @@ def _extract_submeshes_tri(
         face_mask = face_labels == label
         face_indices = np.where(face_mask)[0]
 
+        if len(face_indices) == 0:
+            continue
+
         # Extract sub-mesh
-        sub_mesh = mesh.submesh([face_indices], append=True)
+        try:
+            sub_mesh = mesh.submesh([face_indices], append=True)
+        except Exception as e:
+            from src.utils.logging_utils import get_logger
+            logger = get_logger(__name__)
+            logger.warning(f"Failed to extract sub-mesh for part {i}: {e}")
+            continue
+
+        if not sub_mesh or (isinstance(sub_mesh, list) and len(sub_mesh) == 0):
+            continue
+            
+        if isinstance(sub_mesh, list):
+            sub_mesh = sub_mesh[0]
 
         # Clean up
         mask = sub_mesh.nondegenerate_faces()

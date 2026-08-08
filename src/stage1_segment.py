@@ -42,16 +42,38 @@ def run_segmentation(context: dict) -> dict:
     output_dir = Path(context["output_dir"]) / "intermediate" / "stage1_segment"
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    # Check for skip_existing — if all 4 RGBA outputs exist, reuse them
+    view_names = ["front", "back", "left", "right"]
+    if context.get("skip_existing"):
+        existing = {}
+        all_exist = True
+        for view in view_names:
+            out_path = output_dir / f"{view}_rgba.png"
+            if out_path.exists():
+                existing[view] = out_path
+            else:
+                all_exist = False
+                break
+        if all_exist:
+            logger.info(f"Skipping Stage 1 — outputs already exist in {output_dir}")
+            context["segmented_images"] = existing
+            context["cross_view_consistency"] = -1.0  # Unknown when skipped
+            return context
+
     ingested = context["ingested_images"]
     device = cfg.device
 
-    # Load SAM 2 model
-    logger.info("Loading SAM 2 model...")
-    sam2_model = load_sam2_model(
-        checkpoint=Path(cfg.sam2_checkpoint),
-        model_cfg=cfg.sam2_model_cfg,
-        device=device,
-    )
+    # Load SAM 2 model if not using fallback
+    if cfg.use_rembg_fallback:
+        logger.info("Using rembg fallback (skipping SAM 2 initialization)...")
+        sam2_model = None
+    else:
+        logger.info("Loading SAM 2 model...")
+        sam2_model = load_sam2_model(
+            checkpoint=Path(cfg.sam2_checkpoint),
+            model_cfg=cfg.sam2_model_cfg,
+            device=device,
+        )
 
     # Segment each view
     segmented = {}

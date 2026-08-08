@@ -36,26 +36,24 @@ def preprocess_image(image_path: Path):
     """
     Prepare input image for TripoSR pipeline.
 
-    TripoSR expects an RGBA image with the subject centered
-    and background removed (alpha channel as mask).
-    It works best with a 512x512 image with the foreground
-    occupying ~85% of the frame.
+    TripoSR expects an RGBA image with the subject centered,
+    resized to ~85% of frame, and composited over gray (0.5).
     """
+    import numpy as np
     from PIL import Image
+    from tsr.utils import resize_foreground
 
     img = Image.open(str(image_path)).convert("RGBA")
 
-    # Ensure square
-    w, h = img.size
-    if w != h:
-        max_dim = max(w, h)
-        new_img = Image.new("RGBA", (max_dim, max_dim), (0, 0, 0, 0))
-        paste_x = (max_dim - w) // 2
-        paste_y = (max_dim - h) // 2
-        new_img.paste(img, (paste_x, paste_y))
-        img = new_img
+    # Resize foreground to 85% of bounding box
+    img = resize_foreground(img, 0.85)
 
-    return img
+    # Convert RGBA to RGB with 0.5 gray background
+    arr = np.array(img).astype(np.float32) / 255.0
+    arr = arr[:, :, :3] * arr[:, :, 3:4] + (1.0 - arr[:, :, 3:4]) * 0.5
+    res_img = Image.fromarray((arr * 255.0).astype(np.uint8))
+
+    return res_img
 
 
 def main():
@@ -155,7 +153,7 @@ def main():
             )
         )
 
-        meshes = model.extract_mesh(scene_codes, resolution=mc_resolution)
+        meshes = model.extract_mesh(scene_codes, True, resolution=mc_resolution)
         mesh = meshes[0]
 
         # Save as OBJ
