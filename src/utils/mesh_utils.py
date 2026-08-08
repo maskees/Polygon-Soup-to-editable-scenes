@@ -3,6 +3,7 @@ Mesh utility functions.
 =======================
 Common Trimesh operations for loading, validation, and manipulation.
 """
+from __future__ import annotations
 
 import typing
 from pathlib import Path

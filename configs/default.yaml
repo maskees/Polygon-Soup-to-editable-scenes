@@ -21,6 +21,9 @@ target_quad_count: 10000
 mesh_smoothing_iterations: 3
 crm_conda_env: "crm"
 unique3d_conda_env: ""
+triposr_conda_env: "crm"          # TripoSR reuses the crm environment (no nvdiffrast needed)
+triposr_mc_resolution: 256        # Marching cubes grid resolution (higher = more detail)
+triposr_chunk_size: 8192          # Surface extraction chunk size (lower = less VRAM)
 reconstruction_timeout: 300
 use_pymeshlab_postprocess: true
 

@@ -1,7 +1,7 @@
 """
 Stage 2 — Sparse 3D Reconstruction
 ====================================
-Feed masked orthogonal images into CRM or Unique3D to generate
+Feed masked orthogonal images into CRM, Unique3D, or TripoSR to generate
 a monolithic 3D mesh.
 
 Input:  4 RGBA images from Stage 1
@@ -82,6 +82,15 @@ def run_reconstruction(context: dict) -> dict:
             checkpoint_dir=Path(cfg.unique3d_checkpoint_dir),
             low_vram=cfg.use_float16,
             conda_env=cfg.unique3d_conda_env,
+            timeout=cfg.reconstruction_timeout,
+        )
+    elif backend == "triposr":
+        mesh = reconstruct_with_triposr(
+            images=image_paths,
+            low_vram=cfg.use_float16,
+            conda_env=cfg.triposr_conda_env,
+            mc_resolution=cfg.triposr_mc_resolution,
+            chunk_size=cfg.triposr_chunk_size,
             timeout=cfg.reconstruction_timeout,
         )
     else:
@@ -273,6 +282,102 @@ def reconstruct_with_unique3d(
     # Load the generated mesh
     mesh = trimesh.load(str(mesh_path), force="mesh")
     logger.info(f"  Unique3D produced mesh: {len(mesh.faces)} faces, {len(mesh.vertices)} vertices")
+
+    return mesh
+
+
+# ─────────────────────────────────────────────────────────────────
+# Backend: TripoSR (subprocess isolation)
+# ─────────────────────────────────────────────────────────────────
+
+
+def reconstruct_with_triposr(
+    images: list[Path],
+    low_vram: bool = False,
+    conda_env: str = "crm",
+    mc_resolution: int = 256,
+    chunk_size: int = 8192,
+    timeout: int = 300,
+) -> "trimesh.Trimesh":
+    """
+    Run TripoSR reconstruction via subprocess isolation.
+
+    TripoSR is a feed-forward 3D reconstruction model that converts
+    a single image to a 3D mesh. It does NOT require nvdiffrast,
+    making it compatible with modern MSVC compilers.
+
+    Model weights are auto-downloaded from HuggingFace on first run.
+
+    Parameters
+    ----------
+    images : list[Path]
+        List of 4 RGBA image paths [front, back, left, right].
+        Only the front view is used (TripoSR is single-image).
+    low_vram : bool
+        If True, use reduced chunk size and resolution.
+    conda_env : str
+        Name of the conda environment with TripoSR dependencies.
+    mc_resolution : int
+        Marching cubes grid resolution (higher = more detail).
+    chunk_size : int
+        Evaluation chunk size (lower = less VRAM).
+    timeout : int
+        Maximum seconds to wait for the subprocess.
+
+    Returns
+    -------
+    trimesh.Trimesh
+        Reconstructed mesh.
+
+    Raises
+    ------
+    RuntimeError
+        If TripoSR fails or times out.
+    FileNotFoundError
+        If the bridge script is not found.
+    """
+    import trimesh
+
+    # TripoSR uses the front view as primary input
+    front_image_path = images[0]
+
+    # Determine output path
+    output_mesh_path = front_image_path.parent.parent / "stage2_reconstruct" / "triposr_raw.obj"
+    output_mesh_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Locate bridge script
+    bridge_script = Path("scripts/triposr_bridge.py")
+    if not bridge_script.exists():
+        raise FileNotFoundError(
+            f"TripoSR bridge script not found at {bridge_script}. "
+            "This file should exist in the scripts/ directory."
+        )
+
+    # Build subprocess command
+    cmd = _build_conda_command(
+        conda_env=conda_env,
+        script=bridge_script,
+        args=[
+            "--input",
+            str(front_image_path),
+            "--output",
+            str(output_mesh_path),
+            "--mc-resolution",
+            str(mc_resolution),
+            "--chunk-size",
+            str(chunk_size),
+        ],
+        low_vram=low_vram,
+    )
+
+    logger.info(f"  Launching TripoSR subprocess: {' '.join(cmd[:5])}...")
+
+    # Run subprocess
+    mesh_path = _run_bridge_subprocess(cmd, output_mesh_path, timeout, "TripoSR")
+
+    # Load the generated mesh
+    mesh = trimesh.load(str(mesh_path), force="mesh")
+    logger.info(f"  TripoSR produced mesh: {len(mesh.faces)} faces, {len(mesh.vertices)} vertices")
 
     return mesh
 

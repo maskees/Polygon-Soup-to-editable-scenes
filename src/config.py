@@ -6,7 +6,7 @@ Loads YAML config files and applies low-VRAM overrides.
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Union
 
 import yaml
 
@@ -42,6 +42,9 @@ class PipelineConfig:
     mesh_smoothing_iterations: int = 3
     crm_conda_env: str = "crm"
     unique3d_conda_env: str = "unique3d"
+    triposr_conda_env: str = "crm"  # TripoSR reuses the crm environment
+    triposr_mc_resolution: int = 256  # Marching cubes grid resolution
+    triposr_chunk_size: int = 8192  # Surface extraction chunk size (lower = less VRAM)
     reconstruction_timeout: int = 300
     use_pymeshlab_postprocess: bool = True
 
@@ -70,7 +73,7 @@ class PipelineConfig:
     max_batch_size: int = 8
 
 
-def load_config(config_path: str | Path, low_vram: bool = False) -> PipelineConfig:
+def load_config(config_path: "Union[str, Path]", low_vram: bool = False) -> PipelineConfig:
     """
     Load pipeline configuration from YAML file.
 

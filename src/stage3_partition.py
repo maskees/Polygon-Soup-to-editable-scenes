@@ -17,6 +17,7 @@ Architecture:
        geometric + semantic features
     6. Map point labels to face labels, smooth boundaries, export
 """
+from __future__ import annotations
 
 import logging
 import typing

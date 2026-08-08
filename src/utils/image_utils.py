@@ -3,6 +3,7 @@ Image utility functions.
 ========================
 Common image loading, format conversion, and validation helpers.
 """
+from __future__ import annotations
 
 from pathlib import Path
 

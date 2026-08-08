@@ -47,8 +47,8 @@ console = Console()
 @click.option(
     "--backend",
     "-b",
-    type=click.Choice(["crm", "unique3d"]),
-    default="crm",
+    type=click.Choice(["crm", "unique3d", "triposr"]),
+    default="triposr",
     help="3D reconstruction backend",
 )
 @click.option(

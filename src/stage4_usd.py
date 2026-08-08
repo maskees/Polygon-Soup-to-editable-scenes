@@ -7,6 +7,7 @@ Export two variants: Y-Up (Maya) and Z-Up (Blender/UE5).
 Input:  N sub-meshes (.obj per semantic part) from Stage 3
 Output: .usda master files with individually toggleable layers
 """
+from __future__ import annotations
 
 import logging
 import typing
